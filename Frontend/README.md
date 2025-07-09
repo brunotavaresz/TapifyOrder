@@ -96,7 +96,7 @@ TapifyOrder is a complete digital restaurant management system that allows custo
 
 - **Frontend:** Next.js 14, React 18, TypeScript
 - **Styling:** Tailwind CSS, shadcn/ui
-- **Backend:** Next.js API Routes
+- **Backend:** Next.js
 - **Database:** MongoDB with Mongoose
 - **State Management:** React Context + localStorage
 - **Icons:** Lucide React
