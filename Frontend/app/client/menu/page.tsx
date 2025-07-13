@@ -42,11 +42,9 @@ const generateClientId = (): string => {
   if (typeof window === 'undefined') {
     return '' // Retornar string vazia no servidor
   }
-  
   // Usar sessionStorage para que cada aba tenha seu próprio ID
   const stored = sessionStorage.getItem('clienteId')
   if (stored) return stored
-  
   const newId = `cliente_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
   sessionStorage.setItem('clienteId', newId)
   return newId
@@ -70,6 +68,7 @@ const reverseCategoryMap: { [key: string]: string } = {
 export default function MenuPage() {
   const { t } = useLanguage()
   const [products, setProducts] = useState<Product[]>([])
+  const [allProducts, setAllProducts] = useState<Product[]>([]) // Novo estado para todos os produtos
   const [cart, setCart] = useState<{ [key: string]: number }>({})
   const [selectedCategory, setSelectedCategory] = useState(t.all)
   const [searchTerm, setSearchTerm] = useState("")
@@ -79,7 +78,6 @@ export default function MenuPage() {
   const [isClient, setIsClient] = useState(false)
   const [cartExists, setCartExists] = useState<boolean>(false)
   const [cartLoading, setCartLoading] = useState(false)
-  // Adicionar um estado para armazenar os IDs dos itens do carrinho
   const [cartItemIds, setCartItemIds] = useState<{ [productId: string]: string }>({})
 
   // Inicializar cliente ID apenas no cliente
@@ -87,7 +85,6 @@ export default function MenuPage() {
     setIsClient(true)
     const id = generateClientId()
     setClienteId(id)
-    
     // Carregar carrinho existente
     if (id) {
       loadExistingCart(id)
@@ -104,13 +101,13 @@ export default function MenuPage() {
       setLoading(true)
       const response = await fetch('/api/produtos')
       if (!response.ok) throw new Error('Erro ao buscar produtos')
-      
       const data = await response.json()
       setProducts(data)
+      setAllProducts(data) // Salvar todos os produtos
     } catch (error) {
       console.error('Erro ao carregar produtos:', error)
-      // Fallback para dados mockados em caso de erro
       setProducts([])
+      setAllProducts([])
     } finally {
       setLoading(false)
     }
@@ -120,80 +117,88 @@ export default function MenuPage() {
     try {
       setLoading(true)
       const apiCategory = reverseCategoryMap[category]
+      
       if (!apiCategory) {
-        fetchProducts()
+        setProducts(allProducts)
         return
       }
+
+      // Tentar buscar por categoria via API primeiro
+      try {
+        const response = await fetch(`/api/produtos/categoria/${encodeURIComponent(apiCategory)}`)
+        if (response.ok) {
+          const data = await response.json()
+          setProducts(data)
+          return
+        }
+      } catch (apiError) {
+        console.log('API de categoria não disponível, filtrando localmente')
+      }
+
+      // Fallback: filtrar localmente
+      const filteredProducts = allProducts.filter(product => 
+        product.categoria.toLowerCase() === apiCategory.toLowerCase()
+      )
+      setProducts(filteredProducts)
       
-      const response = await fetch(`/api/produtos/categoria/${encodeURIComponent(apiCategory)}`)
-      if (!response.ok) throw new Error('Erro ao buscar produtos por categoria')
-      
-      const data = await response.json()
-      setProducts(data)
     } catch (error) {
       console.error('Erro ao carregar produtos por categoria:', error)
-      fetchProducts() // Fallback para todos os produtos
+      // Fallback final: mostrar todos os produtos
+      setProducts(allProducts)
     } finally {
       setLoading(false)
     }
   }
 
   const loadExistingCart = async (clientId: string) => {
-  try {
-    setCartLoading(true)
-    const response = await fetch(`/api/carrinho/${clientId}`)
-    
-    if (response.ok) {
-      const cartData = await response.json()
-      
-      // Verificar se o carrinho tem itens com quantidade > 0
-      const hasValidItems = cartData.itens && cartData.itens.some((item: any) => item.quantidade > 0)
-      
-      if (hasValidItems) {
-        setCartExists(true)
-        
-        // Converter itens do carrinho para o formato local
-        const localCart: { [key: string]: number } = {}
-        const itemIds: { [productId: string]: string } = {}
-        
-        cartData.itens.forEach((item: any) => {
-          if (item.quantidade > 0) {
-            // Se o produto está populado, usar o _id do produto
-            const productId = typeof item.produto === 'object' ? item.produto._id : item.produto
-            localCart[productId] = item.quantidade
-            // CORREÇÃO: Usar o _id do ITEM do carrinho, não do produto
-            itemIds[productId] = item._id // Este é o ID do item no carrinho
-          }
-        })
-        
-        setCart(localCart)
-        setCartItemIds(itemIds)
-        
-        console.log('Carrinho existente carregado:', localCart)
-        console.log('IDs dos itens do carrinho:', itemIds)
-      } else {
+    try {
+      setCartLoading(true)
+      const response = await fetch(`/api/carrinho/${clientId}`)
+      if (response.ok) {
+        const cartData = await response.json()
+        // Verificar se o carrinho tem itens com quantidade > 0
+        const hasValidItems = cartData.itens && cartData.itens.some((item: any) => item.quantidade > 0)
+        if (hasValidItems) {
+          setCartExists(true)
+          // Converter itens do carrinho para o formato local
+          const localCart: { [key: string]: number } = {}
+          const itemIds: { [productId: string]: string } = {}
+          cartData.itens.forEach((item: any) => {
+            if (item.quantidade > 0) {
+              // Se o produto está populado, usar o _id do produto
+              const productId = typeof item.produto === 'object' ? item.produto._id : item.produto
+              localCart[productId] = item.quantidade
+              // CORREÇÃO: Usar o _id do ITEM do carrinho, não do produto
+              itemIds[productId] = item._id // Este é o ID do item no carrinho
+            }
+          })
+          setCart(localCart)
+          setCartItemIds(itemIds)
+          console.log('Carrinho existente carregado:', localCart)
+          console.log('IDs dos itens do carrinho:', itemIds)
+        } else {
+          setCartExists(false)
+          setCart({})
+          setCartItemIds({})
+          console.log('Carrinho encontrado mas está vazio para cliente:', clientId)
+        }
+      } else if (response.status === 404) {
         setCartExists(false)
         setCart({})
         setCartItemIds({})
-        console.log('Carrinho encontrado mas está vazio para cliente:', clientId)
+        console.log('Nenhum carrinho encontrado para cliente:', clientId)
+      } else {
+        throw new Error('Erro ao carregar carrinho')
       }
-    } else if (response.status === 404) {
+    } catch (error) {
+      console.error('Erro ao carregar carrinho existente:', error)
       setCartExists(false)
       setCart({})
       setCartItemIds({})
-      console.log('Nenhum carrinho encontrado para cliente:', clientId)
-    } else {
-      throw new Error('Erro ao carregar carrinho')
+    } finally {
+      setCartLoading(false)
     }
-  } catch (error) {
-    console.error('Erro ao carregar carrinho existente:', error)
-    setCartExists(false)
-    setCart({})
-    setCartItemIds({})
-  } finally {
-    setCartLoading(false)
   }
-}
 
   const categories = [t.all, t.starters, t.mains, t.desserts, t.beverages]
 
@@ -207,158 +212,145 @@ export default function MenuPage() {
     const matchesSearch = 
       product.nome.toLowerCase().includes(searchTerm.toLowerCase()) ||
       product.descricao.toLowerCase().includes(searchTerm.toLowerCase())
-    
     return matchesCategory && matchesSearch
   })
 
   const createNewCart = async (productId: string, quantity: number) => {
-  try {
-    console.log('Criando novo carrinho para:', clienteId)
-    const response = await fetch('/api/carrinho', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        clienteId: clienteId,
-        itens: [{
-          produto: productId,
-          quantidade: quantity,
-          observacao: ""
-        }]
+    try {
+      console.log('Criando novo carrinho para:', clienteId)
+      const response = await fetch('/api/carrinho', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          clienteId: clienteId,
+          itens: [{
+            produto: productId,
+            quantidade: quantity,
+            observacao: ""
+          }]
+        })
       })
-    })
 
-    if (!response.ok) {
-      throw new Error('Erro ao criar carrinho')
+      if (!response.ok) {
+        throw new Error('Erro ao criar carrinho')
+      }
+      const result = await response.json()
+      setCartExists(true)
+      // CORREÇÃO: Salvar os IDs dos itens após criar o carrinho
+      if (result.itens) {
+        const itemIds: { [productId: string]: string } = {}
+        result.itens.forEach((item: any) => {
+          const prodId = typeof item.produto === 'object' ? item.produto._id : item.produto
+          itemIds[prodId] = item._id // ID do item no carrinho
+        })
+        setCartItemIds(itemIds)
+        console.log('IDs dos itens salvos após criação:', itemIds)
+      }
+      console.log('Carrinho criado com sucesso:', result)
+      return result
+    } catch (error) {
+      console.error('Erro ao criar carrinho:', error)
+      throw error
     }
-    
-    const result = await response.json()
-    setCartExists(true)
-    
-    // CORREÇÃO: Salvar os IDs dos itens após criar o carrinho
-    if (result.itens) {
-      const itemIds: { [productId: string]: string } = {}
-      result.itens.forEach((item: any) => {
-        const prodId = typeof item.produto === 'object' ? item.produto._id : item.produto
-        itemIds[prodId] = item._id // ID do item no carrinho
-      })
-      setCartItemIds(itemIds)
-      console.log('IDs dos itens salvos após criação:', itemIds)
-    }
-    
-    console.log('Carrinho criado com sucesso:', result)
-    return result
-  } catch (error) {
-    console.error('Erro ao criar carrinho:', error)
-    throw error
   }
-}
 
   // Modificar a função updateExistingCart para usar o itemId correto
-const updateExistingCart = async (productId: string, quantity: number) => {
-  try {
-    console.log('Atualizando carrinho existente para:', clienteId)
-    console.log('Produto ID:', productId)
-    console.log('Nova quantidade:', quantity)
-    
-    // Verificar se temos o itemId para este produto
-    let itemId = cartItemIds[productId]
-    if (!itemId) {
-      console.log('ItemId não encontrado para produto:', productId)
-      console.log('IDs disponíveis:', cartItemIds)
-      // Se não temos o itemId, precisamos buscar o carrinho novamente
-      await loadExistingCart(clienteId)
-      itemId = cartItemIds[productId]
+  const updateExistingCart = async (productId: string, quantity: number) => {
+    try {
+      console.log('Atualizando carrinho existente para:', clienteId)
+      console.log('Produto ID:', productId)
+      console.log('Nova quantidade:', quantity)
+      // Verificar se temos o itemId para este produto
+      let itemId = cartItemIds[productId]
       if (!itemId) {
-        throw new Error('Item não encontrado no carrinho')
+        console.log('ItemId não encontrado para produto:', productId)
+        console.log('IDs disponíveis:', cartItemIds)
+        // Se não temos o itemId, precisamos buscar o carrinho novamente
+        await loadExistingCart(clienteId)
+        itemId = cartItemIds[productId]
+        if (!itemId) {
+          throw new Error('Item não encontrado no carrinho')
+        }
       }
-    }
-    
-    console.log('Usando item ID:', itemId)
-    
-    const response = await fetch(`/api/carrinho/${clienteId}`, {
-      method: 'PUT',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        itemId: itemId, // CORREÇÃO: Usar o _id do item do carrinho
-        quantidade: quantity,
-        observacao: ""
+      console.log('Usando item ID:', itemId)
+      const response = await fetch(`/api/carrinho/${clienteId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          itemId: itemId, // CORREÇÃO: Usar o _id do item do carrinho
+          quantidade: quantity,
+          observacao: ""
+        })
       })
-    })
 
-    if (!response.ok) {
-      const errorData = await response.text()
-      console.error('Erro na resposta da API:', errorData)
-      throw new Error(`Erro ao atualizar carrinho: ${response.status}`)
+      if (!response.ok) {
+        const errorData = await response.text()
+        console.error('Erro na resposta da API:', errorData)
+        throw new Error(`Erro ao atualizar carrinho: ${response.status}`)
+      }
+      const result = await response.json()
+      console.log('Carrinho atualizado com sucesso:', result)
+      // Atualizar o estado local com os novos dados
+      if (result.itens) {
+        const updatedItemIds: { [productId: string]: string } = {}
+        result.itens.forEach((item: any) => {
+          const productId = typeof item.produto === 'object' ? item.produto._id : item.produto
+          updatedItemIds[productId] = item._id
+        })
+        setCartItemIds(updatedItemIds)
+      }
+      return result
+    } catch (error) {
+      console.error('Erro ao atualizar carrinho:', error)
+      throw error
     }
-    
-    const result = await response.json()
-    console.log('Carrinho atualizado com sucesso:', result)
-    
-    // Atualizar o estado local com os novos dados
-    if (result.itens) {
-      const updatedItemIds: { [productId: string]: string } = {}
-      result.itens.forEach((item: any) => {
-        const productId = typeof item.produto === 'object' ? item.produto._id : item.produto
-        updatedItemIds[productId] = item._id
-      })
-      setCartItemIds(updatedItemIds)
-    }
-    
-    return result
-  } catch (error) {
-    console.error('Erro ao atualizar carrinho:', error)
-    throw error
   }
-}
 
   const createOrUpdateCart = async (productId: string, quantity: number) => {
-  // Não tentar fazer requisições se não temos clienteId
-  if (!clienteId || !isClient) {
-    console.warn('Cliente ID não disponível ainda')
-    return
-  }
+    // Não tentar fazer requisições se não temos clienteId
+    if (!clienteId || !isClient) {
+      console.warn('Cliente ID não disponível ainda')
+      return
+    }
 
-  try {
-    console.log('=== Iniciando createOrUpdateCart ===')
-    console.log('Produto ID:', productId)
-    console.log('Quantidade:', quantity)
-    console.log('Carrinho existe:', cartExists)
-    console.log('Item IDs disponíveis:', cartItemIds)
-    
-    // Verificar se já temos um item ID para este produto
-    const hasItemId = cartItemIds[productId]
-    
-    if (!cartExists || !hasItemId) {
-      console.log('Tentando criar novo carrinho...')
-      try {
-        const result = await createNewCart(productId, quantity)
-        setCartExists(true)
-        return result
-      } catch (error) {
-        console.log('Falha ao criar carrinho, tentando atualizar:', error)
-        // Se falhar na criação, pode ser porque já existe - tentar update
+    try {
+      console.log('=== Iniciando createOrUpdateCart ===')
+      console.log('Produto ID:', productId)
+      console.log('Quantidade:', quantity)
+      console.log('Carrinho existe:', cartExists)
+      console.log('Item IDs disponíveis:', cartItemIds)
+      // Verificar se já temos um item ID para este produto
+      const hasItemId = cartItemIds[productId]
+      if (!cartExists || !hasItemId) {
+        console.log('Tentando criar novo carrinho...')
+        try {
+          const result = await createNewCart(productId, quantity)
+          setCartExists(true)
+          return result
+        } catch (error) {
+          console.log('Falha ao criar carrinho, tentando atualizar:', error)
+          // Se falhar na criação, pode ser porque já existe - tentar update
+          return await updateExistingCart(productId, quantity)
+        }
+      } else {
+        console.log('Atualizando carrinho existente...')
+        // Carrinho já existe, apenas atualizar
         return await updateExistingCart(productId, quantity)
       }
-    } else {
-      console.log('Atualizando carrinho existente...')
-      // Carrinho já existe, apenas atualizar
-      return await updateExistingCart(productId, quantity)
+    } catch (error) {
+      console.error('Erro ao gerenciar carrinho:', error)
+      throw error
     }
-  } catch (error) {
-    console.error('Erro ao gerenciar carrinho:', error)
-    throw error
   }
-}
 
   const addToCart = async (productId: string) => {
     // Atualizar o estado local imediatamente para feedback visual
     const currentQuantity = cart[productId] || 0
     const newQuantity = currentQuantity + 1
-    
     setCart(prev => ({
       ...prev,
       [productId]: newQuantity
@@ -385,7 +377,6 @@ const updateExistingCart = async (productId: string, quantity: number) => {
     if (currentQuantity <= 0) return
 
     const newQuantity = currentQuantity - 1
-    
     // Atualizar o estado local imediatamente
     setCart(prev => ({
       ...prev,
@@ -432,7 +423,7 @@ const updateExistingCart = async (productId: string, quantity: number) => {
   const handleCategoryChange = (category: string) => {
     setSelectedCategory(category)
     if (category === t.all) {
-      fetchProducts()
+      setProducts(allProducts) // Usar todos os produtos localmente
     } else {
       const categoryKey = Object.keys(reverseCategoryMap).find(key => 
         (key === "entries" && category === t.starters) ||
@@ -478,8 +469,11 @@ const updateExistingCart = async (productId: string, quantity: number) => {
           <div>Carrinho existe: {cartExists ? 'Sim' : 'Não'}</div>
           <div>Itens no carrinho: {getTotalItems()}</div>
           <div>Loading carrinho: {cartLoading ? 'Sim' : 'Não'}</div>
+          <div>Produtos carregados: {products.length}</div>
+          <div>Categoria selecionada: {selectedCategory}</div>
         </div>
       )}
+
       {/* Waiter Notification */}
       <WaiterNotification isVisible={showWaiterNotification} onClose={() => setShowWaiterNotification(false)} />
 
@@ -597,7 +591,7 @@ const updateExistingCart = async (productId: string, quantity: number) => {
             <span className="ml-2 text-blue-600">Carregando produtos...</span>
           </div>
         )}
-
+        
         {/* Menu Items */}
         {!loading && (
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4 lg:gap-8">

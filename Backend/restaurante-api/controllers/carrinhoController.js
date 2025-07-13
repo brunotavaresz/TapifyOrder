@@ -70,17 +70,22 @@ exports.modificarItem = async (req, res) => {
 exports.removerItem = async (req, res) => {
   try {
     const { clienteId, itemId } = req.params;
-
+    
     const carrinho = await Carrinho.findOne({ clienteId });
     if (!carrinho) return res.status(404).json({ error: 'Carrinho não encontrado' });
-
+    
     const item = carrinho.itens.id(itemId);
     if (!item) return res.status(404).json({ error: 'Item não encontrado no carrinho' });
-
-    item.remove();
+    
+    // Fix: Use pull() method instead of remove()
+    carrinho.itens.pull(itemId);
+    
+    // Alternative approach using filter:
+    // carrinho.itens = carrinho.itens.filter(item => item._id.toString() !== itemId);
+    
     carrinho.precoTotal = await calcularPrecoTotal(carrinho.itens);
     await carrinho.save();
-
+    
     res.json(carrinho);
   } catch (err) {
     res.status(500).json({ error: err.message });

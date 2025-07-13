@@ -5,7 +5,7 @@ import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Textarea } from "@/components/ui/textarea"
-import { ChefHat, ArrowLeft, Plus, Minus, Trash2 } from "lucide-react"
+import { ChefHat, ArrowLeft, Plus, Minus, Trash2, Loader2 } from "lucide-react"
 
 type CartItem = {
   _id?: string; // id do item no backend
@@ -22,6 +22,7 @@ export default function CartPage() {
   const [cartId, setCartId] = useState<string | null>(null)
   const [clienteId, setClienteId] = useState<string>("")
   const [loading, setLoading] = useState(true)
+  const [updating, setUpdating] = useState<string | null>(null) // Para mostrar loading em itens específicos
 
   const [specialInstructions, setSpecialInstructions] = useState("")
   const tableNumber = "12" // TODO: integrar com seleção de mesa se necessário
@@ -70,6 +71,7 @@ export default function CartPage() {
         setCartId(null)
       }
     } catch (e) {
+      console.error('Erro ao buscar carrinho:', e)
       setCartItems([])
       setCartId(null)
     } finally {
@@ -77,40 +79,71 @@ export default function CartPage() {
     }
   }
 
-  // Atualizar quantidade de um item
-  const updateQuantity = async (produtoId: string, newQuantity: number) => {
-    const item = cartItems.find((i) => i.produto === produtoId)
+  // Atualizar quantidade de um item usando o endpoint PUT correto
+  const updateQuantity = async (itemId: string, newQuantity: number) => {
+    const item = cartItems.find((i) => i._id === itemId)
     if (!item) return
+
     if (newQuantity <= 0) {
-      await removeItem(produtoId)
+      await removeItem(itemId)
       return
     }
+
+    setUpdating(itemId)
     try {
-      // Atualizar carrinho no backend
       const res = await fetch(`/api/carrinho/${clienteId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          itens: cartItems.map((i) =>
-            i.produto === produtoId ? { ...i, quantidade: newQuantity } : i
-          ).map(({ produto, quantidade, observacao }) => ({ produto, quantidade, observacao }))
+          itemId: itemId,
+          quantidade: newQuantity,
+          observacao: item.observacao || ""
         })
       })
+      
       if (res.ok) {
-        fetchCart(clienteId)
+        // Atualizar o estado local imediatamente para melhor UX
+        setCartItems(prevItems => 
+          prevItems.map(i => 
+            i._id === itemId ? { ...i, quantidade: newQuantity } : i
+          )
+        )
+        // Opcional: recarregar do backend para garantir sincronização
+        // fetchCart(clienteId)
+      } else {
+        console.error('Erro ao atualizar quantidade')
       }
-    } catch (e) {}
+    } catch (e) {
+      console.error('Erro ao atualizar quantidade:', e)
+    } finally {
+      setUpdating(null)
+    }
   }
 
-  // Remover item do carrinho
-  const removeItem = async (produtoId: string) => {
-    const item = cartItems.find((i) => i.produto === produtoId)
-    if (!item || !item._id) return
+  // Remover item do carrinho usando o endpoint DELETE correto
+  const removeItem = async (itemId: string) => {
+    const item = cartItems.find((i) => i._id === itemId)
+    if (!item) return
+
+    setUpdating(itemId)
     try {
-      // Remove item via endpoint
-      await fetch(`/api/carrinho/${clienteId}/item/${item._id}`, { method: 'DELETE' })
-      fetchCart(clienteId)
-    } catch (e) {}
+      const res = await fetch(`/api/carrinho/${clienteId}/item/${itemId}`, { 
+        method: 'DELETE' 
+      })
+      
+      if (res.ok) {
+        // Remover o item do estado local imediatamente
+        setCartItems(prevItems => prevItems.filter(i => i._id !== itemId))
+        // Opcional: recarregar do backend para garantir sincronização
+        // fetchCart(clienteId)
+      } else {
+        console.error('Erro ao remover item')
+      }
+    } catch (e) {
+      console.error('Erro ao remover item:', e)
+    } finally {
+      setUpdating(null)
+    }
   }
 
   const getTotal = () => {
@@ -120,29 +153,49 @@ export default function CartPage() {
   // Enviar pedido
   const handleOrder = async () => {
     if (!cartItems.length) return
+    
+    setLoading(true)
     try {
       const res = await fetch('/api/pedidos', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           clienteId,
-          itens: cartItems.map(({ produto, quantidade, observacao }) => ({ produto, quantidade, observacao })),
+          itens: cartItems.map(({ produto, quantidade, observacao }) => ({ 
+            produto, 
+            quantidade, 
+            observacao 
+          })),
           mesa: tableNumber,
           observacao: specialInstructions
         })
       })
+      
       if (res.ok) {
         // Limpar carrinho após pedido
         await fetch(`/api/carrinho/${clienteId}`, { method: 'DELETE' })
         setCartItems([])
+        setCartId(null)
         window.location.href = "/client/orders"
+      } else {
+        console.error('Erro ao criar pedido')
       }
-    } catch (e) {}
+    } catch (e) {
+      console.error('Erro ao criar pedido:', e)
+    } finally {
+      setLoading(false)
+    }
   }
 
   if (loading) {
-    return <div className="min-h-screen flex items-center justify-center">Carregando...</div>
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
+        <span className="ml-2 text-blue-600">Carregando...</span>
+      </div>
+    )
   }
+
   if (cartItems.length === 0) {
     return (
       <div className="min-h-screen bg-gray-50">
@@ -207,7 +260,12 @@ export default function CartPage() {
           <div className="lg:col-span-2 space-y-4">
             <h2 className="text-2xl font-bold mb-4 text-blue-700">Seus Itens</h2>
             {cartItems.map((item) => (
-              <Card key={item._id || item.produto} className="border-blue-100">
+              <Card key={item._id} className="border-blue-100 relative">
+                {updating === item._id && (
+                  <div className="absolute inset-0 bg-white/50 backdrop-blur-sm flex items-center justify-center z-10 rounded-lg">
+                    <Loader2 className="h-6 w-6 animate-spin text-blue-600" />
+                  </div>
+                )}
                 <CardContent className="p-6">
                   <div className="flex items-center justify-between">
                     <div className="flex-1">
@@ -222,25 +280,49 @@ export default function CartPage() {
                           </ul>
                         </div>
                       )}
-                      <p className="text-blue-600 font-bold mt-2">R$ {item.preco?.toFixed(2)} cada</p>
+                      {item.observacao && (
+                        <div className="mt-2">
+                          <p className="text-sm text-blue-600">Observação:</p>
+                          <p className="text-sm text-blue-600">• {item.observacao}</p>
+                        </div>
+                      )}
+                      <p className="text-blue-600 font-bold mt-2">€ {item.preco?.toFixed(2)} cada</p>
                     </div>
                     <div className="flex items-center space-x-4">
                       <div className="flex items-center space-x-2">
-                        <Button variant="outline" size="sm" onClick={() => updateQuantity(item.produto, item.quantidade - 1)} className="border-blue-200 text-blue-600 hover:bg-blue-50">
+                        <Button 
+                          variant="outline" 
+                          size="sm" 
+                          onClick={() => updateQuantity(item._id!, item.quantidade - 1)} 
+                          className="border-blue-200 text-blue-600 hover:bg-blue-50"
+                          disabled={updating === item._id}
+                        >
                           <Minus className="h-4 w-4" />
                         </Button>
                         <span className="w-8 text-center font-semibold text-blue-900">{item.quantidade}</span>
-                        <Button variant="outline" size="sm" onClick={() => updateQuantity(item.produto, item.quantidade + 1)} className="border-blue-200 text-blue-600 hover:bg-blue-50">
+                        <Button 
+                          variant="outline" 
+                          size="sm" 
+                          onClick={() => updateQuantity(item._id!, item.quantidade + 1)} 
+                          className="border-blue-200 text-blue-600 hover:bg-blue-50"
+                          disabled={updating === item._id}
+                        >
                           <Plus className="h-4 w-4" />
                         </Button>
                       </div>
-                      <Button variant="outline" size="sm" onClick={() => removeItem(item.produto)} className="border-blue-200 text-blue-600 hover:bg-blue-50">
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        onClick={() => removeItem(item._id!)} 
+                        className="border-red-200 text-red-600 hover:bg-red-50"
+                        disabled={updating === item._id}
+                      >
                         <Trash2 className="h-4 w-4" />
                       </Button>
                     </div>
                   </div>
                   <div className="text-right mt-4">
-                    <span className="text-lg font-bold text-blue-700">Subtotal: R$ {(item.preco * item.quantidade).toFixed(2)}</span>
+                    <span className="text-lg font-bold text-blue-700">Subtotal: € {(item.preco * item.quantidade).toFixed(2)}</span>
                   </div>
                 </CardContent>
               </Card>
@@ -260,15 +342,18 @@ export default function CartPage() {
                 </div>
                 <div className="flex justify-between">
                   <span className="text-blue-600">Subtotal:</span>
-                  <span className="text-blue-900">R$ {getTotal().toFixed(2)}</span>
+                  <span className="text-blue-900">€ {getTotal().toFixed(2)}</span>
                 </div>
                 <div className="border-t pt-4">
                   <div className="flex justify-between text-lg font-bold">
                     <span className="text-blue-700">Total:</span>
-                    <span className="text-blue-600">R$ {getTotal().toFixed(2)}</span>
+                    <span className="text-blue-600">€ {getTotal().toFixed(2)}</span>
                   </div>
                 </div>
                 <div className="pt-4">
+                  <label className="block text-sm font-medium text-blue-700 mb-2">
+                    Instruções Especiais:
+                  </label>
                   <Textarea
                     placeholder="Ex: Sem cebola na pizza, ponto da carne bem passado..."
                     value={specialInstructions}
@@ -277,8 +362,20 @@ export default function CartPage() {
                     className="border-blue-200 focus:border-blue-400 focus:ring-blue-400"
                   />
                 </div>
-                <Button className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white" size="lg" onClick={handleOrder} disabled={cartItems.length === 0}>
-                  Finalizar Pedido - R$ {getTotal().toFixed(2)}
+                <Button 
+                  className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white" 
+                  size="lg" 
+                  onClick={handleOrder} 
+                  disabled={cartItems.length === 0 || loading}
+                >
+                  {loading ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                      Processando...
+                    </>
+                  ) : (
+                    <>Finalizar Pedido - € {getTotal().toFixed(2)}</>
+                  )}
                 </Button>
               </CardContent>
             </Card>
