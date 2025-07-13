@@ -3,18 +3,18 @@
 import { useState, useEffect } from "react"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Textarea } from "@/components/ui/textarea"
 import { ChefHat, ArrowLeft, Plus, Minus, Trash2, Loader2 } from "lucide-react"
 
 type CartItem = {
-  _id?: string; // id do item no backend
-  produto: string; // id do produto
-  nome: string;
-  preco: number;
-  quantidade: number;
-  observacao?: string;
-  customizacoes?: string[];
+  _id?: string // id do item no backend
+  produto: string // id do produto
+  nome: string
+  preco: number
+  quantidade: number
+  observacao?: string
+  customizacoes?: string[]
 }
 
 export default function CartPage() {
@@ -29,11 +29,11 @@ export default function CartPage() {
 
   // Função para obter ou gerar o clientId igual ao menu
   function getClientId() {
-    if (typeof window === 'undefined') return ''
-    let stored = sessionStorage.getItem('clienteId')
+    if (typeof window === "undefined") return ""
+    const stored = sessionStorage.getItem("clienteId")
     if (stored) return stored
     const newId = `cliente_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
-    sessionStorage.setItem('clienteId', newId)
+    sessionStorage.setItem("clienteId", newId)
     return newId
   }
 
@@ -59,19 +59,19 @@ export default function CartPage() {
           (data.itens || []).map((item: any) => ({
             _id: item._id,
             produto: item.produto?._id || item.produto,
-            nome: item.produto?.nome || '',
+            nome: item.produto?.nome || "",
             preco: item.produto?.preco || 0,
             quantidade: item.quantidade,
             observacao: item.observacao,
             customizacoes: item.customizacoes || [],
-          }))
+          })),
         )
       } else {
         setCartItems([])
         setCartId(null)
       }
     } catch (e) {
-      console.error('Erro ao buscar carrinho:', e)
+      console.error("Erro ao buscar carrinho:", e)
       setCartItems([])
       setCartId(null)
     } finally {
@@ -92,29 +92,25 @@ export default function CartPage() {
     setUpdating(itemId)
     try {
       const res = await fetch(`/api/carrinho/${clienteId}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           itemId: itemId,
           quantidade: newQuantity,
-          observacao: item.observacao || ""
-        })
+          observacao: item.observacao || "",
+        }),
       })
-      
+
       if (res.ok) {
         // Atualizar o estado local imediatamente para melhor UX
-        setCartItems(prevItems => 
-          prevItems.map(i => 
-            i._id === itemId ? { ...i, quantidade: newQuantity } : i
-          )
-        )
+        setCartItems((prevItems) => prevItems.map((i) => (i._id === itemId ? { ...i, quantidade: newQuantity } : i)))
         // Opcional: recarregar do backend para garantir sincronização
         // fetchCart(clienteId)
       } else {
-        console.error('Erro ao atualizar quantidade')
+        console.error("Erro ao atualizar quantidade")
       }
     } catch (e) {
-      console.error('Erro ao atualizar quantidade:', e)
+      console.error("Erro ao atualizar quantidade:", e)
     } finally {
       setUpdating(null)
     }
@@ -127,20 +123,20 @@ export default function CartPage() {
 
     setUpdating(itemId)
     try {
-      const res = await fetch(`/api/carrinho/${clienteId}/item/${itemId}`, { 
-        method: 'DELETE' 
+      const res = await fetch(`/api/carrinho/${clienteId}/item/${itemId}`, {
+        method: "DELETE",
       })
-      
+
       if (res.ok) {
         // Remover o item do estado local imediatamente
-        setCartItems(prevItems => prevItems.filter(i => i._id !== itemId))
+        setCartItems((prevItems) => prevItems.filter((i) => i._id !== itemId))
         // Opcional: recarregar do backend para garantir sincronização
         // fetchCart(clienteId)
       } else {
-        console.error('Erro ao remover item')
+        console.error("Erro ao remover item")
       }
     } catch (e) {
-      console.error('Erro ao remover item:', e)
+      console.error("Erro ao remover item:", e)
     } finally {
       setUpdating(null)
     }
@@ -153,35 +149,35 @@ export default function CartPage() {
   // Enviar pedido
   const handleOrder = async () => {
     if (!cartItems.length) return
-    
+
     setLoading(true)
     try {
-      const res = await fetch('/api/pedidos', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+      const res = await fetch("/api/pedidos", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           clienteId,
-          itens: cartItems.map(({ produto, quantidade, observacao }) => ({ 
-            produto, 
-            quantidade, 
-            observacao 
+          itens: cartItems.map(({ produto, quantidade, observacao }) => ({
+            produto,
+            quantidade,
+            observacao,
           })),
           mesa: tableNumber,
-          observacao: specialInstructions
-        })
+          observacao: specialInstructions,
+        }),
       })
-      
+
       if (res.ok) {
         // Limpar carrinho após pedido
-        await fetch(`/api/carrinho/${clienteId}`, { method: 'DELETE' })
+        await fetch(`/api/carrinho/${clienteId}`, { method: "DELETE" })
         setCartItems([])
         setCartId(null)
         window.location.href = "/client/orders"
       } else {
-        console.error('Erro ao criar pedido')
+        console.error("Erro ao criar pedido")
       }
     } catch (e) {
-      console.error('Erro ao criar pedido:', e)
+      console.error("Erro ao criar pedido:", e)
     } finally {
       setLoading(false)
     }
@@ -209,7 +205,7 @@ export default function CartPage() {
                 </Button>
               </Link>
               <div className="flex items-center space-x-2">
-                <ChefHat className="h-6 w-6 text-orange-600" />
+                <ChefHat className="h-6 w-6 text-blue-600" />
                 <span className="text-xl font-bold">Carrinho</span>
               </div>
             </div>
@@ -223,7 +219,9 @@ export default function CartPage() {
               <h2 className="text-2xl font-bold mb-2">Carrinho vazio</h2>
               <p className="text-gray-600 mb-6">Adicione alguns itens deliciosos do nosso menu!</p>
               <Link href="/client/menu">
-                <Button>Explorar Menu</Button>
+                <Button className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700">
+                  Explorar Menu
+                </Button>
               </Link>
             </CardContent>
           </Card>
@@ -246,7 +244,9 @@ export default function CartPage() {
               </Link>
               <div className="flex items-center space-x-2">
                 <ChefHat className="h-6 w-6 text-blue-600" />
-                <span className="text-xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">Carrinho</span>
+                <span className="text-xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
+                  Carrinho
+                </span>
               </div>
             </div>
             <span className="text-sm text-blue-600">Mesa {tableNumber}</span>
@@ -290,30 +290,30 @@ export default function CartPage() {
                     </div>
                     <div className="flex items-center space-x-4">
                       <div className="flex items-center space-x-2">
-                        <Button 
-                          variant="outline" 
-                          size="sm" 
-                          onClick={() => updateQuantity(item._id!, item.quantidade - 1)} 
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => updateQuantity(item._id!, item.quantidade - 1)}
                           className="border-blue-200 text-blue-600 hover:bg-blue-50"
                           disabled={updating === item._id}
                         >
                           <Minus className="h-4 w-4" />
                         </Button>
                         <span className="w-8 text-center font-semibold text-blue-900">{item.quantidade}</span>
-                        <Button 
-                          variant="outline" 
-                          size="sm" 
-                          onClick={() => updateQuantity(item._id!, item.quantidade + 1)} 
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => updateQuantity(item._id!, item.quantidade + 1)}
                           className="border-blue-200 text-blue-600 hover:bg-blue-50"
                           disabled={updating === item._id}
                         >
                           <Plus className="h-4 w-4" />
                         </Button>
                       </div>
-                      <Button 
-                        variant="outline" 
-                        size="sm" 
-                        onClick={() => removeItem(item._id!)} 
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => removeItem(item._id!)}
                         className="border-red-200 text-red-600 hover:bg-red-50"
                         disabled={updating === item._id}
                       >
@@ -322,7 +322,9 @@ export default function CartPage() {
                     </div>
                   </div>
                   <div className="text-right mt-4">
-                    <span className="text-lg font-bold text-blue-700">Subtotal: € {(item.preco * item.quantidade).toFixed(2)}</span>
+                    <span className="text-lg font-bold text-blue-700">
+                      Subtotal: € {(item.preco * item.quantidade).toFixed(2)}
+                    </span>
                   </div>
                 </CardContent>
               </Card>
@@ -351,9 +353,7 @@ export default function CartPage() {
                   </div>
                 </div>
                 <div className="pt-4">
-                  <label className="block text-sm font-medium text-blue-700 mb-2">
-                    Instruções Especiais:
-                  </label>
+                  <label className="block text-sm font-medium text-blue-700 mb-2">Instruções Especiais:</label>
                   <Textarea
                     placeholder="Ex: Sem cebola na pizza, ponto da carne bem passado..."
                     value={specialInstructions}
@@ -362,10 +362,10 @@ export default function CartPage() {
                     className="border-blue-200 focus:border-blue-400 focus:ring-blue-400"
                   />
                 </div>
-                <Button 
-                  className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white" 
-                  size="lg" 
-                  onClick={handleOrder} 
+                <Button
+                  className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white"
+                  size="lg"
+                  onClick={handleOrder}
                   disabled={cartItems.length === 0 || loading}
                 >
                   {loading ? (

@@ -21,11 +21,13 @@ export function LanguageProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     // Load language from localStorage on mount
-    const savedLanguage = localStorage.getItem("tapify-language") as Language
-    if (savedLanguage && ["pt", "en", "fr", "es", "de"].includes(savedLanguage)) {
-      setLanguageState(savedLanguage)
-      setT(translations[savedLanguage])
-      setCurrency(currencies[savedLanguage])
+    if (typeof window !== "undefined") {
+      const savedLanguage = localStorage.getItem("tapify-language") as Language
+      if (savedLanguage && ["pt", "en", "fr", "es", "de"].includes(savedLanguage)) {
+        setLanguageState(savedLanguage)
+        setT(translations[savedLanguage])
+        setCurrency(currencies[savedLanguage])
+      }
     }
   }, [])
 
@@ -33,7 +35,11 @@ export function LanguageProvider({ children }: { children: React.ReactNode }) {
     setLanguageState(lang)
     setT(translations[lang])
     setCurrency(currencies[lang])
-    localStorage.setItem("tapify-language", lang)
+    if (typeof window !== "undefined") {
+      localStorage.setItem("tapify-language", lang)
+      // Refresh da página para recarregar os produtos com a nova linguagem
+      window.location.reload()
+    }
   }
 
   const formatPrice = (price: number) => {

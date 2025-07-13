@@ -1,46 +1,57 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
-import { ChefHat, ArrowLeft, Clock, CheckCircle, Truck, CreditCard, Bell, RefreshCw } from "lucide-react"
+import { ChefHat, ArrowLeft, Clock, CheckCircle, Truck, CreditCard, Bell, RefreshCw, Loader2 } from "lucide-react"
+import { useToast } from "@/hooks/use-toast"
+
+interface OrderItem {
+  produto: {
+    _id: string
+    nome: string
+    preco: number
+  }
+  quantidade: number
+  observacao?: string
+  _id: string
+}
 
 interface Order {
-  id: number
-  items: string[]
-  total: number
-  status: "Recebido" | "A fazer" | "A ser entregue" | "Entregue"
-  timestamp: string
-  specialInstructions?: string
-  estimatedTime?: string
+  _id: string
+  clienteId: string
+  itens: OrderItem[]
+  precoTotal: number
+  status: "pedido recebido" | "preparando" | "pronto para entrega" | "entregue"
+  data: string
 }
 
 const statusConfig = {
-  Recebido: {
+  "pedido recebido": {
     color: "bg-blue-500",
     icon: Clock,
     text: "Pedido recebido",
     progress: 25,
     description: "Seu pedido foi recebido e está na fila de preparação",
   },
-  "A fazer": {
+  preparando: {
     color: "bg-yellow-500",
     icon: RefreshCw,
     text: "Preparando",
     progress: 50,
     description: "Nossa equipe está preparando seu pedido com carinho",
   },
-  "A ser entregue": {
+  "pronto para entrega": {
     color: "bg-orange-500",
     icon: Truck,
     text: "Pronto para entrega",
     progress: 75,
     description: "Seu pedido está pronto e será entregue em breve",
   },
-  Entregue: {
+  entregue: {
     color: "bg-green-500",
     icon: CheckCircle,
     text: "Entregue",
@@ -50,33 +61,127 @@ const statusConfig = {
 }
 
 export default function OrdersPage() {
-  const [orders, setOrders] = useState<Order[]>([
-    {
-      id: 1001,
-      items: ["2x Pizza Margherita Artesanal", "1x Salada Caesar Premium"],
-      total: 90.3,
-      status: "A ser entregue",
-      timestamp: "14:30",
-      specialInstructions: "Pizza sem cebola, extra queijo",
-      estimatedTime: "5 min",
-    },
-    {
-      id: 1000,
-      items: ["1x Tiramisu da Casa", "1x Suco Natural Detox"],
-      total: 31.4,
-      status: "Entregue",
-      timestamp: "13:15",
-    },
-  ])
+  const [orders, setOrders] = useState<Order[]>([])
+  const [loading, setLoading] = useState(true)
+  const [callingWaiter, setCallingWaiter] = useState(false)
+  const { toast } = useToast()
 
+  // Simular clienteId - em uma aplicação real, isso viria da autenticação
+  // Remove this line:
+  // const clienteId = "cliente123"
+
+  // Add state for clienteId:
+  const [clienteId, setClienteId] = useState<string>("")
   const tableNumber = "12"
 
-  const handlePayment = (orderId: number) => {
+  // Add this function before the fetchOrders function:
+  function getClientId() {
+    if (typeof window === "undefined") return ""
+    const stored = sessionStorage.getItem("clienteId")
+    if (stored) return stored
+    const newId = `cliente_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+    sessionStorage.setItem("clienteId", newId)
+    return newId
+  }
+
+  // Update fetchOrders to accept clientId parameter:
+  const fetchOrders = async (clientId: string) => {
+    if (!clientId) return
+
+    try {
+      setLoading(true)
+      const response = await fetch(`/api/pedidos/cliente/${clientId}`)
+
+      if (!response.ok) {
+        throw new Error("Erro ao buscar pedidos")
+      }
+
+      const data = await response.json()
+      setOrders(data)
+    } catch (error) {
+      console.error("Erro ao buscar pedidos:", error)
+      toast({
+        title: "Erro",
+        description: "Não foi possível carregar seus pedidos. Tente novamente.",
+        variant: "destructive",
+      })
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  // Update the useEffect to get clienteId:
+  useEffect(() => {
+    const id = getClientId()
+    setClienteId(id)
+    if (id) {
+      fetchOrders(id)
+    }
+  }, [])
+
+  const handlePayment = (orderId: string) => {
     window.location.href = `/client/payment/${orderId}`
   }
 
-  const callWaiter = () => {
-    alert("Garçom chamado! Ele estará na sua mesa em breve.")
+  const callWaiter = async () => {
+    try {
+      setCallingWaiter(true)
+
+      const response = await fetch("/api/chamadas", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          mesa: tableNumber,
+          tipo: "chamada_garcom",
+          observacao: "Cliente solicitou atendimento",
+        }),
+      })
+
+      if (!response.ok) {
+        throw new Error("Erro ao chamar garçom")
+      }
+
+      toast({
+        title: "Garçom chamado!",
+        description: "Ele estará na sua mesa em breve.",
+      })
+    } catch (error) {
+      console.error("Erro ao chamar garçom:", error)
+      toast({
+        title: "Erro",
+        description: "Não foi possível chamar o garçom. Tente novamente.",
+        variant: "destructive",
+      })
+    } finally {
+      setCallingWaiter(false)
+    }
+  }
+
+  const formatTime = (dateString: string) => {
+    const date = new Date(dateString)
+    return date.toLocaleTimeString("pt-BR", {
+      hour: "2-digit",
+      minute: "2-digit",
+    })
+  }
+
+  const formatOrderItems = (items: OrderItem[]) => {
+    return items.map(
+      (item) => `${item.quantidade}x ${item.produto.nome}${item.observacao ? ` (${item.observacao})` : ""}`,
+    )
+  }
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 flex items-center justify-center">
+        <div className="text-center">
+          <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4 text-blue-600" />
+          <p className="text-gray-600">Carregando seus pedidos...</p>
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -108,9 +213,14 @@ export default function OrdersPage() {
                 variant="outline"
                 size="sm"
                 onClick={callWaiter}
+                disabled={callingWaiter}
                 className="border-orange-200 text-orange-600 hover:bg-orange-50 bg-transparent text-xs lg:text-sm"
               >
-                <Bell className="h-3 lg:h-4 w-3 lg:w-4 mr-1 lg:mr-2" />
+                {callingWaiter ? (
+                  <Loader2 className="h-3 lg:h-4 w-3 lg:w-4 mr-1 lg:mr-2 animate-spin" />
+                ) : (
+                  <Bell className="h-3 lg:h-4 w-3 lg:w-4 mr-1 lg:mr-2" />
+                )}
                 <span className="hidden sm:inline">Chamar </span>Garçom
               </Button>
             </div>
@@ -137,19 +247,28 @@ export default function OrdersPage() {
             <div className="text-center mb-8">
               <h1 className="text-4xl font-bold text-gray-800 mb-2">Acompanhe seus Pedidos</h1>
               <p className="text-gray-600 text-lg">Veja o status em tempo real de todos os seus pedidos</p>
+              <Button
+                variant="outline"
+                onClick={() => fetchOrders(clienteId)}
+                className="mt-4 border-blue-200 text-blue-600 hover:bg-blue-50 bg-transparent"
+              >
+                <RefreshCw className="h-4 w-4 mr-2" />
+                Atualizar
+              </Button>
             </div>
 
             {orders.map((order) => {
               const config = statusConfig[order.status]
               const Icon = config.icon
+              const orderItems = formatOrderItems(order.itens)
 
               return (
-                <Card key={order.id} className="overflow-hidden border-blue-100 shadow-lg">
+                <Card key={order._id} className="overflow-hidden border-blue-100 shadow-lg">
                   <CardHeader className="bg-gradient-to-r from-blue-50 to-indigo-50 p-4 lg:p-6">
                     <div className="flex flex-col lg:flex-row lg:items-center justify-between space-y-2 lg:space-y-0">
                       <div>
                         <CardTitle className="flex flex-col lg:flex-row lg:items-center space-y-2 lg:space-y-0 lg:space-x-3 text-lg lg:text-2xl">
-                          <span className="text-gray-800">Pedido #{order.id}</span>
+                          <span className="text-gray-800">Pedido #{order._id.slice(-6)}</span>
                           <Badge
                             variant="secondary"
                             className={`${config.color} text-white px-2 lg:px-3 py-1 self-start lg:self-auto`}
@@ -159,17 +278,12 @@ export default function OrdersPage() {
                           </Badge>
                         </CardTitle>
                         <CardDescription className="text-sm lg:text-lg mt-2">
-                          Feito às {order.timestamp} • Mesa {tableNumber}
-                          {order.estimatedTime && order.status !== "Entregue" && (
-                            <span className="block lg:inline lg:ml-4 text-orange-600 font-medium mt-1 lg:mt-0">
-                              Tempo estimado: {order.estimatedTime}
-                            </span>
-                          )}
+                          Feito às {formatTime(order.data)} • Mesa {tableNumber}
                         </CardDescription>
                       </div>
                       <div className="text-left lg:text-right">
                         <div className="text-2xl lg:text-3xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
-                          R$ {order.total.toFixed(2)}
+                          € {order.precoTotal.toFixed(2)}
                         </div>
                       </div>
                     </div>
@@ -194,7 +308,7 @@ export default function OrdersPage() {
                         </h4>
                         <div className="bg-gray-50 rounded-lg p-3 lg:p-4">
                           <ul className="space-y-1 lg:space-y-2">
-                            {order.items.map((item, index) => (
+                            {orderItems.map((item, index) => (
                               <li key={index} className="text-sm lg:text-base text-gray-700 flex items-center">
                                 <div className="w-1.5 lg:w-2 h-1.5 lg:h-2 bg-blue-500 rounded-full mr-2 lg:mr-3 flex-shrink-0"></div>
                                 {item}
@@ -203,15 +317,6 @@ export default function OrdersPage() {
                           </ul>
                         </div>
                       </div>
-
-                      {order.specialInstructions && (
-                        <div>
-                          <h4 className="font-semibold mb-3 text-lg text-gray-800">Observações especiais:</h4>
-                          <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 rounded">
-                            <p className="text-gray-700">{order.specialInstructions}</p>
-                          </div>
-                        </div>
-                      )}
 
                       {/* Status Timeline */}
                       <div className="border-t pt-4 lg:pt-6">
@@ -273,7 +378,7 @@ export default function OrdersPage() {
                         </div>
                       </div>
 
-                      {order.status === "Entregue" && (
+                      {order.status === "entregue" && (
                         <div className="border-t pt-4 lg:pt-6">
                           <div className="bg-green-50 border border-green-200 rounded-lg p-4 lg:p-6">
                             <div className="flex items-center mb-3 lg:mb-4">
@@ -287,10 +392,10 @@ export default function OrdersPage() {
                             </p>
                             <Button
                               className="w-full bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-sm lg:text-lg py-2 lg:py-3"
-                              onClick={() => handlePayment(order.id)}
+                              onClick={() => handlePayment(order._id)}
                             >
                               <CreditCard className="h-4 lg:h-5 w-4 lg:w-5 mr-2" />
-                              Pagar Pedido - R$ {order.total.toFixed(2)}
+                              Pagar Pedido - € {order.precoTotal.toFixed(2)}
                             </Button>
                           </div>
                         </div>

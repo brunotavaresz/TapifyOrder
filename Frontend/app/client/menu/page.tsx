@@ -39,30 +39,30 @@ interface Cart {
 // Função para gerar um clienteId único POR ABA (usar sessionStorage em vez de localStorage)
 const generateClientId = (): string => {
   // Verificar se estamos no cliente
-  if (typeof window === 'undefined') {
-    return '' // Retornar string vazia no servidor
+  if (typeof window === "undefined") {
+    return "" // Retornar string vazia no servidor
   }
   // Usar sessionStorage para que cada aba tenha seu próprio ID
-  const stored = sessionStorage.getItem('clienteId')
+  const stored = sessionStorage.getItem("clienteId")
   if (stored) return stored
   const newId = `cliente_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
-  sessionStorage.setItem('clienteId', newId)
+  sessionStorage.setItem("clienteId", newId)
   return newId
 }
 
 // Mapear categorias da API para o frontend
 const categoryMap: { [key: string]: string } = {
-  "entrada": "entries",
-  "prato principal": "mainCourses", 
-  "sobremesa": "desserts",
-  "bebidas": "beverages"
+  entrada: "entries",
+  "prato principal": "mainCourses",
+  sobremesa: "desserts",
+  bebidas: "beverages",
 }
 
 const reverseCategoryMap: { [key: string]: string } = {
-  "entries": "entrada",
-  "mainCourses": "prato principal",
-  "desserts": "sobremesa", 
-  "beverages": "bebidas"
+  entries: "entrada",
+  mainCourses: "prato principal",
+  desserts: "sobremesa",
+  beverages: "bebidas",
 }
 
 export default function MenuPage() {
@@ -70,15 +70,21 @@ export default function MenuPage() {
   const [products, setProducts] = useState<Product[]>([])
   const [allProducts, setAllProducts] = useState<Product[]>([]) // Novo estado para todos os produtos
   const [cart, setCart] = useState<{ [key: string]: number }>({})
-  const [selectedCategory, setSelectedCategory] = useState(t.all)
+  const [selectedCategory, setSelectedCategory] = useState(t.all) // Sempre inicializar com t.all
   const [searchTerm, setSearchTerm] = useState("")
   const [showWaiterNotification, setShowWaiterNotification] = useState(false)
   const [loading, setLoading] = useState(true)
-  const [clienteId, setClienteId] = useState<string>('')
+  const [clienteId, setClienteId] = useState<string>("")
   const [isClient, setIsClient] = useState(false)
   const [cartExists, setCartExists] = useState<boolean>(false)
   const [cartLoading, setCartLoading] = useState(false)
   const [cartItemIds, setCartItemIds] = useState<{ [productId: string]: string }>({})
+  const [callingWaiter, setCallingWaiter] = useState(false)
+
+  // Atualizar categoria selecionada quando a linguagem mudar
+  useEffect(() => {
+    setSelectedCategory(t.all)
+  }, [t.all])
 
   // Inicializar cliente ID apenas no cliente
   useEffect(() => {
@@ -99,13 +105,13 @@ export default function MenuPage() {
   const fetchProducts = async () => {
     try {
       setLoading(true)
-      const response = await fetch('/api/produtos')
-      if (!response.ok) throw new Error('Erro ao buscar produtos')
+      const response = await fetch("/api/produtos")
+      if (!response.ok) throw new Error("Erro ao buscar produtos")
       const data = await response.json()
       setProducts(data)
       setAllProducts(data) // Salvar todos os produtos
     } catch (error) {
-      console.error('Erro ao carregar produtos:', error)
+      console.error("Erro ao carregar produtos:", error)
       setProducts([])
       setAllProducts([])
     } finally {
@@ -117,7 +123,7 @@ export default function MenuPage() {
     try {
       setLoading(true)
       const apiCategory = reverseCategoryMap[category]
-      
+
       if (!apiCategory) {
         setProducts(allProducts)
         return
@@ -132,17 +138,16 @@ export default function MenuPage() {
           return
         }
       } catch (apiError) {
-        console.log('API de categoria não disponível, filtrando localmente')
+        console.log("API de categoria não disponível, filtrando localmente")
       }
 
       // Fallback: filtrar localmente
-      const filteredProducts = allProducts.filter(product => 
-        product.categoria.toLowerCase() === apiCategory.toLowerCase()
+      const filteredProducts = allProducts.filter(
+        (product) => product.categoria.toLowerCase() === apiCategory.toLowerCase(),
       )
       setProducts(filteredProducts)
-      
     } catch (error) {
-      console.error('Erro ao carregar produtos por categoria:', error)
+      console.error("Erro ao carregar produtos por categoria:", error)
       // Fallback final: mostrar todos os produtos
       setProducts(allProducts)
     } finally {
@@ -166,7 +171,7 @@ export default function MenuPage() {
           cartData.itens.forEach((item: any) => {
             if (item.quantidade > 0) {
               // Se o produto está populado, usar o _id do produto
-              const productId = typeof item.produto === 'object' ? item.produto._id : item.produto
+              const productId = typeof item.produto === "object" ? item.produto._id : item.produto
               localCart[productId] = item.quantidade
               // CORREÇÃO: Usar o _id do ITEM do carrinho, não do produto
               itemIds[productId] = item._id // Este é o ID do item no carrinho
@@ -174,24 +179,20 @@ export default function MenuPage() {
           })
           setCart(localCart)
           setCartItemIds(itemIds)
-          console.log('Carrinho existente carregado:', localCart)
-          console.log('IDs dos itens do carrinho:', itemIds)
         } else {
           setCartExists(false)
           setCart({})
           setCartItemIds({})
-          console.log('Carrinho encontrado mas está vazio para cliente:', clientId)
         }
       } else if (response.status === 404) {
         setCartExists(false)
         setCart({})
         setCartItemIds({})
-        console.log('Nenhum carrinho encontrado para cliente:', clientId)
       } else {
-        throw new Error('Erro ao carregar carrinho')
+        throw new Error("Erro ao carregar carrinho")
       }
     } catch (error) {
-      console.error('Erro ao carregar carrinho existente:', error)
+      console.error("Erro ao carregar carrinho existente:", error)
       setCartExists(false)
       setCart({})
       setCartItemIds({})
@@ -203,13 +204,14 @@ export default function MenuPage() {
   const categories = [t.all, t.starters, t.mains, t.desserts, t.beverages]
 
   const filteredProducts = products.filter((product) => {
-    const matchesCategory = selectedCategory === t.all || 
+    const matchesCategory =
+      selectedCategory === t.all ||
       (selectedCategory === t.starters && categoryMap[product.categoria] === "entries") ||
       (selectedCategory === t.mains && categoryMap[product.categoria] === "mainCourses") ||
       (selectedCategory === t.desserts && categoryMap[product.categoria] === "desserts") ||
       (selectedCategory === t.beverages && categoryMap[product.categoria] === "beverages")
 
-    const matchesSearch = 
+    const matchesSearch =
       product.nome.toLowerCase().includes(searchTerm.toLowerCase()) ||
       product.descricao.toLowerCase().includes(searchTerm.toLowerCase())
     return matchesCategory && matchesSearch
@@ -217,24 +219,25 @@ export default function MenuPage() {
 
   const createNewCart = async (productId: string, quantity: number) => {
     try {
-      console.log('Criando novo carrinho para:', clienteId)
-      const response = await fetch('/api/carrinho', {
-        method: 'POST',
+      const response = await fetch("/api/carrinho", {
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
         },
         body: JSON.stringify({
           clienteId: clienteId,
-          itens: [{
-            produto: productId,
-            quantidade: quantity,
-            observacao: ""
-          }]
-        })
+          itens: [
+            {
+              produto: productId,
+              quantidade: quantity,
+              observacao: "",
+            },
+          ],
+        }),
       })
 
       if (!response.ok) {
-        throw new Error('Erro ao criar carrinho')
+        throw new Error("Erro ao criar carrinho")
       }
       const result = await response.json()
       setCartExists(true)
@@ -242,16 +245,14 @@ export default function MenuPage() {
       if (result.itens) {
         const itemIds: { [productId: string]: string } = {}
         result.itens.forEach((item: any) => {
-          const prodId = typeof item.produto === 'object' ? item.produto._id : item.produto
+          const prodId = typeof item.produto === "object" ? item.produto._id : item.produto
           itemIds[prodId] = item._id // ID do item no carrinho
         })
         setCartItemIds(itemIds)
-        console.log('IDs dos itens salvos após criação:', itemIds)
       }
-      console.log('Carrinho criado com sucesso:', result)
       return result
     } catch (error) {
-      console.error('Erro ao criar carrinho:', error)
+      console.error("Erro ao criar carrinho:", error)
       throw error
     }
   }
@@ -259,53 +260,46 @@ export default function MenuPage() {
   // Modificar a função updateExistingCart para usar o itemId correto
   const updateExistingCart = async (productId: string, quantity: number) => {
     try {
-      console.log('Atualizando carrinho existente para:', clienteId)
-      console.log('Produto ID:', productId)
-      console.log('Nova quantidade:', quantity)
       // Verificar se temos o itemId para este produto
       let itemId = cartItemIds[productId]
       if (!itemId) {
-        console.log('ItemId não encontrado para produto:', productId)
-        console.log('IDs disponíveis:', cartItemIds)
         // Se não temos o itemId, precisamos buscar o carrinho novamente
         await loadExistingCart(clienteId)
         itemId = cartItemIds[productId]
         if (!itemId) {
-          throw new Error('Item não encontrado no carrinho')
+          throw new Error("Item não encontrado no carrinho")
         }
       }
-      console.log('Usando item ID:', itemId)
       const response = await fetch(`/api/carrinho/${clienteId}`, {
-        method: 'PUT',
+        method: "PUT",
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
         },
         body: JSON.stringify({
           itemId: itemId, // CORREÇÃO: Usar o _id do item do carrinho
           quantidade: quantity,
-          observacao: ""
-        })
+          observacao: "",
+        }),
       })
 
       if (!response.ok) {
         const errorData = await response.text()
-        console.error('Erro na resposta da API:', errorData)
+        console.error("Erro na resposta da API:", errorData)
         throw new Error(`Erro ao atualizar carrinho: ${response.status}`)
       }
       const result = await response.json()
-      console.log('Carrinho atualizado com sucesso:', result)
       // Atualizar o estado local com os novos dados
       if (result.itens) {
         const updatedItemIds: { [productId: string]: string } = {}
         result.itens.forEach((item: any) => {
-          const productId = typeof item.produto === 'object' ? item.produto._id : item.produto
+          const productId = typeof item.produto === "object" ? item.produto._id : item.produto
           updatedItemIds[productId] = item._id
         })
         setCartItemIds(updatedItemIds)
       }
       return result
     } catch (error) {
-      console.error('Erro ao atualizar carrinho:', error)
+      console.error("Erro ao atualizar carrinho:", error)
       throw error
     }
   }
@@ -313,36 +307,28 @@ export default function MenuPage() {
   const createOrUpdateCart = async (productId: string, quantity: number) => {
     // Não tentar fazer requisições se não temos clienteId
     if (!clienteId || !isClient) {
-      console.warn('Cliente ID não disponível ainda')
+      console.warn("Cliente ID não disponível ainda")
       return
     }
 
     try {
-      console.log('=== Iniciando createOrUpdateCart ===')
-      console.log('Produto ID:', productId)
-      console.log('Quantidade:', quantity)
-      console.log('Carrinho existe:', cartExists)
-      console.log('Item IDs disponíveis:', cartItemIds)
       // Verificar se já temos um item ID para este produto
       const hasItemId = cartItemIds[productId]
       if (!cartExists || !hasItemId) {
-        console.log('Tentando criar novo carrinho...')
         try {
           const result = await createNewCart(productId, quantity)
           setCartExists(true)
           return result
         } catch (error) {
-          console.log('Falha ao criar carrinho, tentando atualizar:', error)
           // Se falhar na criação, pode ser porque já existe - tentar update
           return await updateExistingCart(productId, quantity)
         }
       } else {
-        console.log('Atualizando carrinho existente...')
         // Carrinho já existe, apenas atualizar
         return await updateExistingCart(productId, quantity)
       }
     } catch (error) {
-      console.error('Erro ao gerenciar carrinho:', error)
+      console.error("Erro ao gerenciar carrinho:", error)
       throw error
     }
   }
@@ -351,22 +337,21 @@ export default function MenuPage() {
     // Atualizar o estado local imediatamente para feedback visual
     const currentQuantity = cart[productId] || 0
     const newQuantity = currentQuantity + 1
-    setCart(prev => ({
+    setCart((prev) => ({
       ...prev,
-      [productId]: newQuantity
+      [productId]: newQuantity,
     }))
 
     // Tentar sincronizar com a API se possível
     if (clienteId && isClient) {
       try {
         await createOrUpdateCart(productId, newQuantity)
-        console.log(`Item ${productId} adicionado. Quantidade: ${newQuantity}`)
       } catch (error) {
-        console.error('Erro ao adicionar ao carrinho:', error)
+        console.error("Erro ao adicionar ao carrinho:", error)
         // Reverter o estado local em caso de erro
-        setCart(prev => ({
+        setCart((prev) => ({
           ...prev,
-          [productId]: currentQuantity
+          [productId]: currentQuantity,
         }))
       }
     }
@@ -378,9 +363,9 @@ export default function MenuPage() {
 
     const newQuantity = currentQuantity - 1
     // Atualizar o estado local imediatamente
-    setCart(prev => ({
+    setCart((prev) => ({
       ...prev,
-      [productId]: Math.max(newQuantity, 0)
+      [productId]: Math.max(newQuantity, 0),
     }))
 
     // Tentar sincronizar com a API se possível
@@ -388,18 +373,16 @@ export default function MenuPage() {
       try {
         if (newQuantity > 0) {
           await updateExistingCart(productId, newQuantity)
-          console.log(`Item ${productId} removido. Quantidade: ${newQuantity}`)
         } else {
           // Se quantidade for 0, ainda mantemos o item no carrinho com quantidade 0
           await updateExistingCart(productId, 0)
-          console.log(`Item ${productId} removido completamente`)
         }
       } catch (error) {
-        console.error('Erro ao remover do carrinho:', error)
+        console.error("Erro ao remover do carrinho:", error)
         // Reverter o estado local em caso de erro
-        setCart(prev => ({
+        setCart((prev) => ({
           ...prev,
-          [productId]: currentQuantity
+          [productId]: currentQuantity,
         }))
       }
     }
@@ -412,12 +395,37 @@ export default function MenuPage() {
   const getTotalPrice = () => {
     return products.reduce((total, product) => {
       const quantity = cart[product._id] || 0
-      return total + (quantity * product.preco)
+      return total + quantity * product.preco
     }, 0)
   }
 
-  const callWaiter = () => {
-    setShowWaiterNotification(true)
+  const callWaiter = async () => {
+    try {
+      setCallingWaiter(true)
+
+      const response = await fetch("/api/chamadas", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          mesa: "12",
+          tipo: "chamada_garcom",
+          observacao: "Cliente solicitou atendimento",
+        }),
+      })
+
+      if (!response.ok) {
+        throw new Error("Erro ao chamar garçom")
+      }
+
+      setShowWaiterNotification(true)
+    } catch (error) {
+      console.error("Erro ao chamar garçom:", error)
+      alert("Erro ao chamar garçom. Tente novamente.")
+    } finally {
+      setCallingWaiter(false)
+    }
   }
 
   const handleCategoryChange = (category: string) => {
@@ -425,11 +433,12 @@ export default function MenuPage() {
     if (category === t.all) {
       setProducts(allProducts) // Usar todos os produtos localmente
     } else {
-      const categoryKey = Object.keys(reverseCategoryMap).find(key => 
-        (key === "entries" && category === t.starters) ||
-        (key === "mainCourses" && category === t.mains) ||
-        (key === "desserts" && category === t.desserts) ||
-        (key === "beverages" && category === t.beverages)
+      const categoryKey = Object.keys(reverseCategoryMap).find(
+        (key) =>
+          (key === "entries" && category === t.starters) ||
+          (key === "mainCourses" && category === t.mains) ||
+          (key === "desserts" && category === t.desserts) ||
+          (key === "beverages" && category === t.beverages),
       )
       if (categoryKey) {
         fetchProductsByCategory(categoryKey)
@@ -440,10 +449,10 @@ export default function MenuPage() {
   // Função para mapear emoji baseado na categoria
   const getProductEmoji = (categoria: string): string => {
     const emojiMap: { [key: string]: string } = {
-      "entrada": "🥗",
-      "prato principal": "🍽️", 
-      "sobremesa": "🍰",
-      "bebidas": "🥤"
+      entrada: "🥗",
+      "prato principal": "🍽️",
+      sobremesa: "🍰",
+      bebidas: "🥤",
     }
     return emojiMap[categoria] || "🍽️"
   }
@@ -462,18 +471,6 @@ export default function MenuPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50">
-      {/* Debug Info - Remover em produção */}
-      {process.env.NODE_ENV === 'development' && (
-        <div className="fixed top-20 left-4 z-50 bg-black/80 text-white p-2 rounded text-xs">
-          <div>Cliente ID: {clienteId}</div>
-          <div>Carrinho existe: {cartExists ? 'Sim' : 'Não'}</div>
-          <div>Itens no carrinho: {getTotalItems()}</div>
-          <div>Loading carrinho: {cartLoading ? 'Sim' : 'Não'}</div>
-          <div>Produtos carregados: {products.length}</div>
-          <div>Categoria selecionada: {selectedCategory}</div>
-        </div>
-      )}
-
       {/* Waiter Notification */}
       <WaiterNotification isVisible={showWaiterNotification} onClose={() => setShowWaiterNotification(false)} />
 
@@ -507,9 +504,14 @@ export default function MenuPage() {
                 variant="outline"
                 size="sm"
                 onClick={callWaiter}
-                className="border-orange-200 text-orange-600 hover:bg-orange-50 bg-transparent text-xs lg:text-sm"
+                disabled={callingWaiter}
+                className="border-blue-200 text-blue-600 hover:bg-blue-50 bg-transparent text-xs lg:text-sm"
               >
-                <Bell className="h-3 lg:h-4 w-3 lg:w-4 mr-1 lg:mr-2" />
+                {callingWaiter ? (
+                  <Loader2 className="h-3 lg:h-4 w-3 lg:w-4 mr-1 lg:mr-2 animate-spin" />
+                ) : (
+                  <Bell className="h-3 lg:h-4 w-3 lg:w-4 mr-1 lg:mr-2" />
+                )}
                 {t.callWaiter}
               </Button>
               <Link href="/client/cart">
@@ -591,7 +593,7 @@ export default function MenuPage() {
             <span className="ml-2 text-blue-600">Carregando produtos...</span>
           </div>
         )}
-        
+
         {/* Menu Items */}
         {!loading && (
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4 lg:gap-8">
@@ -602,9 +604,7 @@ export default function MenuPage() {
               >
                 <div className="relative">
                   <div className="h-32 lg:h-48 bg-gradient-to-br from-blue-100 to-indigo-100 flex items-center justify-center">
-                    <div className="text-6xl lg:text-8xl">
-                      {product.imagem || getProductEmoji(product.categoria)}
-                    </div>
+                    <div className="text-6xl lg:text-8xl">{product.imagem || getProductEmoji(product.categoria)}</div>
                   </div>
                   {product.popular && (
                     <Badge className="absolute top-2 lg:top-3 left-2 lg:left-3 bg-gradient-to-r from-orange-500 to-red-500 text-white text-xs">
@@ -701,9 +701,7 @@ export default function MenuPage() {
               >
                 <ShoppingCart className="h-4 lg:h-6 w-4 lg:w-6 mr-1 lg:mr-2" />
                 <span className="hidden sm:inline">{t.viewCart} </span>({getTotalItems()})
-                <Badge className="ml-1 lg:ml-2 bg-white text-blue-600 text-xs">
-                  € {getTotalPrice().toFixed(2)}
-                </Badge>
+                <Badge className="ml-1 lg:ml-2 bg-white text-blue-600 text-xs">€ {getTotalPrice().toFixed(2)}</Badge>
               </Button>
             </Link>
           </div>
