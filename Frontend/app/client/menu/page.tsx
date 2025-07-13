@@ -66,7 +66,7 @@ const reverseCategoryMap: { [key: string]: string } = {
 }
 
 export default function MenuPage() {
-  const { t } = useLanguage()
+  const { t, loadingLanguage } = useLanguage() // Use loadingLanguage from context
   const [products, setProducts] = useState<Product[]>([])
   const [allProducts, setAllProducts] = useState<Product[]>([]) // Novo estado para todos os produtos
   const [cart, setCart] = useState<{ [key: string]: number }>({})
@@ -458,13 +458,12 @@ export default function MenuPage() {
   }
 
   // Não renderizar funcionalidades dependentes do localStorage até estar no cliente
-  if (!isClient) {
+  if (!isClient || loadingLanguage) {
+    // Use loadingLanguage here
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50">
-        <div className="flex justify-center items-center min-h-screen">
-          <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
-          <span className="ml-2 text-blue-600">Carregando...</span>
-        </div>
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 flex justify-center items-center">
+        <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
+        <span className="ml-2 text-blue-600">{loadingLanguage ? t.changingLanguage : t.loading}</span>
       </div>
     )
   }

@@ -1,8 +1,9 @@
 "use client"
 
 import type React from "react"
-import { createContext, useContext, useState, useEffect } from "react"
-import { type Language, translations, type Translations, currencies, type Currency } from "@/lib/i18n"
+import { createContext, useContext, useState, useEffect, useCallback } from "react"
+import { type Language, getDictionary, type Translations, currencies, type Currency } from "@/lib/i18n"
+import { Loader2 } from "lucide-react" // Import Loader2
 
 interface LanguageContextType {
   language: Language
@@ -10,35 +11,69 @@ interface LanguageContextType {
   t: Translations
   currency: Currency
   formatPrice: (price: number) => string
+  loadingLanguage: boolean // Add loadingLanguage to context type
 }
 
 const LanguageContext = createContext<LanguageContextType | undefined>(undefined)
 
 export function LanguageProvider({ children }: { children: React.ReactNode }) {
   const [language, setLanguageState] = useState<Language>("pt")
-  const [t, setT] = useState<Translations>(translations["pt"])
-  const [currency, setCurrency] = useState<Currency>(currencies["pt"])
+  const [t, setT] = useState<Translations>({} as Translations) // Initialize with an empty object cast to Translations
+  const [currency, setCurrency] = useState<Currency>(currencies["pt"]) // Default currency
+  const [loadingLanguage, setLoadingLanguage] = useState(true) // Initial loading state
+  const [isInitialLoad, setIsInitialLoad] = useState(true) // To differentiate initial load from subsequent changes
+
+  const loadTranslations = useCallback(
+    async (lang: Language) => {
+      setLoadingLanguage(true) // Start loading
+      try {
+        const dictionary = await getDictionary(lang)
+        setT(dictionary)
+        setCurrency(currencies[lang])
+        setLanguageState(lang)
+        localStorage.setItem("tapify-language", lang)
+      } catch (error) {
+        console.error("Failed to load translations:", error)
+        // Fallback to a default language if loading fails
+        const defaultLang: Language = "en"
+        const defaultDictionary = await getDictionary(defaultLang)
+        setT(defaultDictionary)
+        setCurrency(currencies[defaultLang])
+        setLanguageState(defaultLang)
+        localStorage.setItem("tapify-language", defaultLang)
+      } finally {
+        // Simulate a small delay for language change effect if not initial load
+        if (!isInitialLoad) {
+          setTimeout(() => {
+            setLoadingLanguage(false) // End loading
+          }, 300) // Adjust delay as needed
+        } else {
+          setLoadingLanguage(false) // End loading immediately for initial load
+        }
+        setIsInitialLoad(false) // Mark initial load as complete
+      }
+    },
+    [isInitialLoad],
+  ) // Dependency on isInitialLoad
 
   useEffect(() => {
-    // Load language from localStorage on mount
-    if (typeof window !== "undefined") {
-      const savedLanguage = localStorage.getItem("tapify-language") as Language
-      if (savedLanguage && ["pt", "en", "fr", "es", "de"].includes(savedLanguage)) {
-        setLanguageState(savedLanguage)
-        setT(translations[savedLanguage])
-        setCurrency(currencies[savedLanguage])
+    const savedLanguage = localStorage.getItem("tapify-language") as Language
+    if (savedLanguage && ["pt", "en", "fr", "es", "de"].includes(savedLanguage)) {
+      loadTranslations(savedLanguage)
+    } else {
+      // Detect browser language if no saved language
+      const browserLanguage = navigator.language.split("-")[0] as Language
+      if (["pt", "en", "fr", "es", "de"].includes(browserLanguage)) {
+        loadTranslations(browserLanguage)
+      } else {
+        loadTranslations("pt") // Default to Portuguese if browser language not supported
       }
     }
-  }, [])
+  }, [loadTranslations]) // Dependency on loadTranslations
 
   const setLanguage = (lang: Language) => {
-    setLanguageState(lang)
-    setT(translations[lang])
-    setCurrency(currencies[lang])
-    if (typeof window !== "undefined") {
-      localStorage.setItem("tapify-language", lang)
-      // Refresh da página para recarregar os produtos com a nova linguagem
-      window.location.reload()
+    if (lang !== language) {
+      loadTranslations(lang)
     }
   }
 
@@ -46,8 +81,19 @@ export function LanguageProvider({ children }: { children: React.ReactNode }) {
     return `${currency.symbol} ${price.toFixed(2)}`
   }
 
+  // Render loading spinner if language is still loading
+  if (loadingLanguage && isInitialLoad) {
+    // Only show initial loading screen
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 flex justify-center items-center">
+        <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
+        <span className="ml-2 text-blue-600">{t.loading || "A carregar..."}</span>
+      </div>
+    )
+  }
+
   return (
-    <LanguageContext.Provider value={{ language, setLanguage, t, currency, formatPrice }}>
+    <LanguageContext.Provider value={{ language, setLanguage, t, currency, formatPrice, loadingLanguage }}>
       {children}
     </LanguageContext.Provider>
   )
