@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import Link from "next/link"
 import Image from "next/image" // Importar o componente Image
 import { Button } from "@/components/ui/button"
@@ -83,6 +83,12 @@ export default function MenuPage() {
   const [cartLoading, setCartLoading] = useState(false)
   const [cartItemIds, setCartItemIds] = useState<{ [productId: string]: string }>({})
   const [callingWaiter, setCallingWaiter] = useState(false)
+  
+  // Estados para anti-spam
+  const [updatingItems, setUpdatingItems] = useState<Set<string>>(new Set())
+  const [pendingUpdates, setPendingUpdates] = useState<{ [key: string]: number }>({})
+  const updateTimeouts = useRef<{ [key: string]: NodeJS.Timeout }>({})
+  const lastUpdateTime = useRef<{ [key: string]: number }>({})
 
   // Atualizar categoria selecionada quando a linguagem mudar
   useEffect(() => {
@@ -103,6 +109,13 @@ export default function MenuPage() {
   // Carregar produtos da API
   useEffect(() => {
     fetchProducts()
+  }, [])
+
+  // Cleanup dos timeouts ao desmontar o componente
+  useEffect(() => {
+    return () => {
+      Object.values(updateTimeouts.current).forEach(timeout => clearTimeout(timeout))
+    }
   }, [])
 
   const fetchProducts = async () => {
@@ -215,6 +228,14 @@ export default function MenuPage() {
       product.descricao.toLowerCase().includes(searchTerm.toLowerCase())
     return matchesCategory && matchesSearch
   })
+
+  // Função para limpar timeouts
+  const clearUpdateTimeout = (productId: string) => {
+    if (updateTimeouts.current[productId]) {
+      clearTimeout(updateTimeouts.current[productId])
+      delete updateTimeouts.current[productId]
+    }
+  }
 
   // Nova função para adicionar um novo item ao carrinho (ou criar o carrinho se não existir)
   const addNewItemToCart = async (productId: string, quantity: number, observacao = "") => {
@@ -336,6 +357,73 @@ export default function MenuPage() {
     }
   }
 
+  // Função debounced para atualizar quantidade
+  const debouncedUpdateQuantity = async (productId: string, newQuantity: number) => {
+    // Verifica se há um update muito recente (throttling)
+    const now = Date.now()
+    const lastUpdate = lastUpdateTime.current[productId] || 0
+    const timeSinceLastUpdate = now - lastUpdate
+    
+    if (timeSinceLastUpdate < 200) { // 200ms throttle
+      return
+    }
+    
+    lastUpdateTime.current[productId] = now
+    
+    // Marca o item como sendo atualizado
+    setUpdatingItems(prev => new Set(prev).add(productId))
+    
+    // Limpa timeout anterior se existir
+    clearUpdateTimeout(productId)
+    
+    // Atualiza estado pendente
+    setPendingUpdates(prev => ({
+      ...prev,
+      [productId]: newQuantity
+    }))
+    
+    // Cria novo timeout
+    updateTimeouts.current[productId] = setTimeout(async () => {
+      try {
+        if (clienteId && isClient) {
+          const currentQuantity = cart[productId] || 0
+          
+          if (newQuantity === 0) {
+            await removeItemFromCart(productId)
+          } else if (currentQuantity === 0) {
+            await addNewItemToCart(productId, newQuantity)
+          } else {
+            await updateExistingCart(productId, newQuantity)
+          }
+        }
+      } catch (error) {
+        console.error("Erro ao atualizar quantidade:", error)
+        // Reverte para quantidade anterior em caso de erro
+        setCart(prev => ({
+          ...prev,
+          [productId]: cart[productId] || 0,
+        }))
+      } finally {
+        // Remove o item da lista de atualizações
+        setUpdatingItems(prev => {
+          const newSet = new Set(prev)
+          newSet.delete(productId)
+          return newSet
+        })
+        
+        // Remove do estado pendente
+        setPendingUpdates(prev => {
+          const newPending = { ...prev }
+          delete newPending[productId]
+          return newPending
+        })
+        
+        // Limpa o timeout
+        clearUpdateTimeout(productId)
+      }
+    }, 500) // 500ms de debounce
+  }
+
   const addToCart = async (productId: string) => {
     const currentQuantity = cart[productId] || 0
     const newQuantity = currentQuantity + 1
@@ -346,24 +434,8 @@ export default function MenuPage() {
       [productId]: newQuantity,
     }))
 
-    if (clienteId && isClient) {
-      try {
-        if (currentQuantity === 0) {
-          // Item não está no carrinho, adiciona-o
-          await addNewItemToCart(productId, newQuantity)
-        } else {
-          // Item já está no carrinho, atualiza sua quantidade
-          await updateExistingCart(productId, newQuantity)
-        }
-      } catch (error) {
-        console.error("Erro ao adicionar ao carrinho:", error)
-        // Reverte a atualização otimista em caso de erro
-        setCart((prev) => ({
-          ...prev,
-          [productId]: currentQuantity,
-        }))
-      }
-    }
+    // Chama a função debounced
+    await debouncedUpdateQuantity(productId, newQuantity)
   }
 
   const removeFromCart = async (productId: string) => {
@@ -378,24 +450,8 @@ export default function MenuPage() {
       [productId]: Math.max(newQuantity, 0),
     }))
 
-    if (clienteId && isClient) {
-      try {
-        if (newQuantity === 0) {
-          // Quantidade se torna 0, remove o item do carrinho
-          await removeItemFromCart(productId)
-        } else {
-          // Quantidade ainda é > 0, atualiza sua quantidade
-          await updateExistingCart(productId, newQuantity)
-        }
-      } catch (error) {
-        console.error("Erro ao remover do carrinho:", error)
-        // Reverte a atualização otimista em caso de erro
-        setCart((prev) => ({
-          ...prev,
-          [productId]: currentQuantity,
-        }))
-      }
-    }
+    // Chama a função debounced
+    await debouncedUpdateQuantity(productId, newQuantity)
   }
 
   const getTotalItems = () => {
@@ -465,6 +521,16 @@ export default function MenuPage() {
       bebidas: "🥤",
     }
     return emojiMap[categoria] || "🍽️"
+  }
+
+  // Função para verificar se um item está sendo atualizado
+  const isItemUpdating = (productId: string) => {
+    return updatingItems.has(productId)
+  }
+
+  // Função para obter a quantidade atual (considerando updates pendentes)
+  const getCurrentQuantity = (productId: string) => {
+    return pendingUpdates[productId] ?? cart[productId] ?? 0
   }
 
   // Não renderizar funcionalidades dependentes do localStorage até estar no cliente
@@ -613,16 +679,25 @@ export default function MenuPage() {
               >
                 <div className="relative">
                   <div className="h-32 lg:h-48 bg-gradient-to-br from-blue-100 to-indigo-100 flex items-center justify-center">
-                    {product.foto ? ( // Usar product.foto aqui
+                    {product.foto ? (
                       <Image
-                        src={product.foto || "/placeholder.svg"} // Usar product.foto
+                        src={product.foto}
                         alt={product.nome}
-                        width={200} // Ajuste conforme necessário
-                        height={200} // Ajuste conforme necessário
+                        width={200}
+                        height={200}
                         className="object-cover w-full h-full"
+                        onError={(e) => {
+                          e.currentTarget.src = "https://www.happycow.net/img/recipe-cutlery.jpg"
+                        }}
                       />
                     ) : (
-                      <div className="text-6xl lg:text-8xl">{getProductEmoji(product.categoria)}</div>
+                      <Image
+                        src="https://www.happycow.net/img/recipe-cutlery.jpg"
+                        alt={product.nome}
+                        width={200}
+                        height={200}
+                        className="object-cover w-full h-full"
+                      />
                     )}
                   </div>
                   {product.popular && (
@@ -661,42 +736,54 @@ export default function MenuPage() {
                 </CardHeader>
 
                 <CardContent className="pt-0 p-3 lg:p-6">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center space-x-2 lg:space-x-3">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => removeFromCart(product._id)}
-                        disabled={!cart[product._id]}
-                        className="border-blue-200 text-blue-600 hover:bg-blue-50 h-8 w-8 lg:h-10 lg:w-10 p-0"
-                      >
-                        <Minus className="h-3 lg:h-4 w-3 lg:w-4" />
-                      </Button>
-                      <span className="w-6 lg:w-8 text-center font-semibold text-sm lg:text-lg">
-                        {cart[product._id] || 0}
-                      </span>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => addToCart(product._id)}
-                        className="border-blue-200 text-blue-600 hover:bg-blue-50 h-8 w-8 lg:h-10 lg:w-10 p-0"
-                      >
-                        <Plus className="h-3 lg:h-4 w-3 lg:w-4" />
-                      </Button>
-                    </div>
-                    {product.customizavel && (
-                      <Link href={`/client/customize/${product._id}`}>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="border-indigo-200 text-indigo-600 hover:bg-indigo-50 bg-transparent text-xs lg:text-sm px-2 lg:px-3"
-                        >
-                          {t.customize}
-                        </Button>
-                      </Link>
-                    )}
-                  </div>
-                </CardContent>
+  <div className="flex items-center justify-between">
+    <div className="flex items-center space-x-2 lg:space-x-3">
+      <Button
+        variant="outline"
+        size="sm"
+        onClick={() => removeFromCart(product._id)}
+        disabled={!getCurrentQuantity(product._id) || isItemUpdating(product._id)}
+        className="border-blue-200 text-blue-600 hover:bg-blue-50 h-8 w-8 lg:h-10 lg:w-10 p-0 transition-all duration-150"
+      >
+        {isItemUpdating(product._id) ? (
+          <Loader2 className="h-3 lg:h-4 w-3 lg:w-4 animate-spin" />
+        ) : (
+          <Minus className="h-3 lg:h-4 w-3 lg:w-4" />
+        )}
+      </Button>
+      
+      <span className="w-6 lg:w-8 text-center font-semibold text-sm lg:text-lg transition-all duration-150">
+        {getCurrentQuantity(product._id)}
+      </span>
+      
+      <Button
+        variant="outline"
+        size="sm"
+        onClick={() => addToCart(product._id)}
+        disabled={isItemUpdating(product._id)}
+        className="border-blue-200 text-blue-600 hover:bg-blue-50 h-8 w-8 lg:h-10 lg:w-10 p-0 transition-all duration-150"
+      >
+        {isItemUpdating(product._id) ? (
+          <Loader2 className="h-3 lg:h-4 w-3 lg:w-4 animate-spin" />
+        ) : (
+          <Plus className="h-3 lg:h-4 w-3 lg:w-4" />
+        )}
+      </Button>
+    </div>
+    
+    {product.customizavel && (
+      <Link href={`/client/customize/${product._id}`}>
+        <Button
+          variant="outline"
+          size="sm"
+          className="border-indigo-200 text-indigo-600 hover:bg-indigo-50 bg-transparent text-xs lg:text-sm px-2 lg:px-3 transition-all duration-150"
+        >
+          {t.customize}
+        </Button>
+      </Link>
+    )}
+  </div>
+</CardContent>
               </Card>
             ))}
           </div>
