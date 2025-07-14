@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react"
 import Link from "next/link"
+import Image from "next/image" // Importar o componente Image
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -17,7 +18,7 @@ interface Product {
   descricao: string
   preco: number
   categoria: string
-  imagem?: string
+  foto?: string // Campo 'foto' para a URL da imagem
   customizavel?: boolean
   rating?: number
   tempoPreparacao?: string
@@ -612,7 +613,17 @@ export default function MenuPage() {
               >
                 <div className="relative">
                   <div className="h-32 lg:h-48 bg-gradient-to-br from-blue-100 to-indigo-100 flex items-center justify-center">
-                    <div className="text-6xl lg:text-8xl">{product.imagem || getProductEmoji(product.categoria)}</div>
+                    {product.foto ? ( // Usar product.foto aqui
+                      <Image
+                        src={product.foto || "/placeholder.svg"} // Usar product.foto
+                        alt={product.nome}
+                        width={200} // Ajuste conforme necessário
+                        height={200} // Ajuste conforme necessário
+                        className="object-cover w-full h-full"
+                      />
+                    ) : (
+                      <div className="text-6xl lg:text-8xl">{getProductEmoji(product.categoria)}</div>
+                    )}
                   </div>
                   {product.popular && (
                     <Badge className="absolute top-2 lg:top-3 left-2 lg:left-3 bg-gradient-to-r from-orange-500 to-red-500 text-white text-xs">
