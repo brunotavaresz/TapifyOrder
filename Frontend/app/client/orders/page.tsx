@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
 import { ChefHat, ArrowLeft, Clock, CheckCircle, Truck, CreditCard, Bell, RefreshCw, Loader2 } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
+import { WaiterNotification } from "@/components/WaiterNotification" // Importar o componente de notificação
 
 interface OrderItem {
   produto: {
@@ -64,17 +65,12 @@ export default function OrdersPage() {
   const [orders, setOrders] = useState<Order[]>([])
   const [loading, setLoading] = useState(true)
   const [callingWaiter, setCallingWaiter] = useState(false)
+  const [showWaiterNotification, setShowWaiterNotification] = useState(false) // Novo estado para a notificação
   const { toast } = useToast()
 
-  // Simular clienteId - em uma aplicação real, isso viria da autenticação
-  // Remove this line:
-  // const clienteId = "cliente123"
-
-  // Add state for clienteId:
   const [clienteId, setClienteId] = useState<string>("")
   const tableNumber = "12"
 
-  // Add this function before the fetchOrders function:
   function getClientId() {
     if (typeof window === "undefined") return ""
     const stored = sessionStorage.getItem("clienteId")
@@ -84,7 +80,6 @@ export default function OrdersPage() {
     return newId
   }
 
-  // Update fetchOrders to accept clientId parameter:
   const fetchOrders = async (clientId: string) => {
     if (!clientId) return
 
@@ -110,7 +105,6 @@ export default function OrdersPage() {
     }
   }
 
-  // Update the useEffect to get clienteId:
   useEffect(() => {
     const id = getClientId()
     setClienteId(id)
@@ -134,24 +128,26 @@ export default function OrdersPage() {
         },
         body: JSON.stringify({
           mesa: tableNumber,
-          tipo: "chamada_garcom",
+          tipo: "chamada_empregado", // Alterado para "chamada_empregado"
           observacao: "Cliente solicitou atendimento",
         }),
       })
 
       if (!response.ok) {
-        throw new Error("Erro ao chamar garçom")
+        throw new Error("Erro ao chamar empregado")
       }
 
+      // Em vez de apenas um toast, mostramos a notificação visual
+      setShowWaiterNotification(true)
       toast({
-        title: "Garçom chamado!",
+        title: "Empregado chamado!", // Alterado para "Empregado chamado!"
         description: "Ele estará na sua mesa em breve.",
       })
     } catch (error) {
-      console.error("Erro ao chamar garçom:", error)
+      console.error("Erro ao chamar empregado:", error)
       toast({
         title: "Erro",
-        description: "Não foi possível chamar o garçom. Tente novamente.",
+        description: "Não foi possível chamar o empregado. Tente novamente.",
         variant: "destructive",
       })
     } finally {
@@ -210,18 +206,16 @@ export default function OrdersPage() {
                 Mesa {tableNumber}
               </span>
               <Button
-                variant="outline"
-                size="sm"
                 onClick={callWaiter}
                 disabled={callingWaiter}
-                className="border-orange-200 text-orange-600 hover:bg-orange-50 bg-transparent text-xs lg:text-sm"
+                className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white text-xs lg:text-sm px-3 py-1.5 lg:px-4 lg:py-2" // Estilo do botão alterado
               >
                 {callingWaiter ? (
                   <Loader2 className="h-3 lg:h-4 w-3 lg:w-4 mr-1 lg:mr-2 animate-spin" />
                 ) : (
                   <Bell className="h-3 lg:h-4 w-3 lg:w-4 mr-1 lg:mr-2" />
                 )}
-                <span className="hidden sm:inline">Chamar </span>Garçom
+                <span className="hidden sm:inline">Chamar </span>Empregado {/* Texto alterado */}
               </Button>
             </div>
           </div>
@@ -418,6 +412,8 @@ export default function OrdersPage() {
             </div>
           </div>
         )}
+        {/* Componente de notificação do empregado */}
+        <WaiterNotification isVisible={showWaiterNotification} onClose={() => setShowWaiterNotification(false)} />
       </main>
     </div>
   )

@@ -25,7 +25,8 @@ interface Product {
 }
 
 interface CartItem {
-  produto: string
+  _id: string // ID do subdocumento do item no carrinho
+  produto: string | Product // Pode ser o ID ou o objeto populado
   quantidade: number
   observacao?: string
 }
@@ -34,6 +35,7 @@ interface Cart {
   clienteId: string
   itens: CartItem[]
   _id?: string
+  precoTotal?: number
 }
 
 // Função para gerar um clienteId único POR ABA (usar sessionStorage em vez de localStorage)
@@ -155,35 +157,31 @@ export default function MenuPage() {
     }
   }
 
+  // Helper para atualizar o estado local do carrinho a partir da resposta da API
+  const updateLocalCartState = (apiCart: Cart) => {
+    const localCart: { [key: string]: number } = {}
+    const itemIds: { [productId: string]: string } = {}
+    if (apiCart.itens && apiCart.itens.length > 0) {
+      apiCart.itens.forEach((item) => {
+        const productId = typeof item.produto === "object" ? item.produto._id : item.produto
+        localCart[productId] = item.quantidade
+        itemIds[productId] = item._id
+      })
+      setCartExists(true)
+    } else {
+      setCartExists(false)
+    }
+    setCart(localCart)
+    setCartItemIds(itemIds)
+  }
+
   const loadExistingCart = async (clientId: string) => {
     try {
       setCartLoading(true)
       const response = await fetch(`/api/carrinho/${clientId}`)
       if (response.ok) {
         const cartData = await response.json()
-        // Verificar se o carrinho tem itens com quantidade > 0
-        const hasValidItems = cartData.itens && cartData.itens.some((item: any) => item.quantidade > 0)
-        if (hasValidItems) {
-          setCartExists(true)
-          // Converter itens do carrinho para o formato local
-          const localCart: { [key: string]: number } = {}
-          const itemIds: { [productId: string]: string } = {}
-          cartData.itens.forEach((item: any) => {
-            if (item.quantidade > 0) {
-              // Se o produto está populado, usar o _id do produto
-              const productId = typeof item.produto === "object" ? item.produto._id : item.produto
-              localCart[productId] = item.quantidade
-              // CORREÇÃO: Usar o _id do ITEM do carrinho, não do produto
-              itemIds[productId] = item._id // Este é o ID do item no carrinho
-            }
-          })
-          setCart(localCart)
-          setCartItemIds(itemIds)
-        } else {
-          setCartExists(false)
-          setCart({})
-          setCartItemIds({})
-        }
+        updateLocalCartState(cartData)
       } else if (response.status === 404) {
         setCartExists(false)
         setCart({})
@@ -217,138 +215,148 @@ export default function MenuPage() {
     return matchesCategory && matchesSearch
   })
 
-  const createNewCart = async (productId: string, quantity: number) => {
+  // Nova função para adicionar um novo item ao carrinho (ou criar o carrinho se não existir)
+  const addNewItemToCart = async (productId: string, quantity: number, observacao = "") => {
+    if (!clienteId || !isClient) {
+      console.warn("Cliente ID não disponível ainda")
+      return
+    }
     try {
-      const response = await fetch("/api/carrinho", {
+      const response = await fetch(`/api/carrinho/${clienteId}/item`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          clienteId: clienteId,
-          itens: [
-            {
-              produto: productId,
-              quantidade: quantity,
-              observacao: "",
-            },
-          ],
+          produtoId: productId,
+          quantidade: quantity,
+          observacao: observacao,
         }),
       })
 
       if (!response.ok) {
-        throw new Error("Erro ao criar carrinho")
+        const errorData = await response.text()
+        console.error("Erro na resposta da API (addNewItemToCart):", errorData)
+        throw new Error(`Erro ao adicionar/atualizar item no carrinho: ${response.status}`)
       }
-      const result = await response.json()
-      setCartExists(true)
-      // CORREÇÃO: Salvar os IDs dos itens após criar o carrinho
-      if (result.itens) {
-        const itemIds: { [productId: string]: string } = {}
-        result.itens.forEach((item: any) => {
-          const prodId = typeof item.produto === "object" ? item.produto._id : item.produto
-          itemIds[prodId] = item._id // ID do item no carrinho
-        })
-        setCartItemIds(itemIds)
-      }
-      return result
+      const updatedCart = await response.json()
+      updateLocalCartState(updatedCart) // Atualiza todo o estado local do carrinho
     } catch (error) {
-      console.error("Erro ao criar carrinho:", error)
+      console.error("Erro ao adicionar/atualizar item no carrinho:", error)
       throw error
     }
   }
 
-  // Modificar a função updateExistingCart para usar o itemId correto
-  const updateExistingCart = async (productId: string, quantity: number) => {
+  // Função modificada para atualizar a quantidade/observação de um item existente
+  const updateExistingCart = async (productId: string, quantity: number, observacao = "") => {
+    if (!clienteId || !isClient) {
+      console.warn("Cliente ID não disponível ainda")
+      return
+    }
+    const itemId = cartItemIds[productId]
+    if (!itemId) {
+      console.error(`Erro: itemId não encontrado para o produto ${productId}. Tentando adicionar como novo item.`)
+      // Fallback: se o itemId estiver faltando, tenta adicionar como um novo item
+      return addNewItemToCart(productId, quantity, observacao)
+    }
+
     try {
-      // Verificar se temos o itemId para este produto
-      let itemId = cartItemIds[productId]
-      if (!itemId) {
-        // Se não temos o itemId, precisamos buscar o carrinho novamente
-        await loadExistingCart(clienteId)
-        itemId = cartItemIds[productId]
-        if (!itemId) {
-          throw new Error("Item não encontrado no carrinho")
-        }
-      }
       const response = await fetch(`/api/carrinho/${clienteId}`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          itemId: itemId, // CORREÇÃO: Usar o _id do item do carrinho
+          itemId: itemId,
           quantidade: quantity,
-          observacao: "",
+          observacao: observacao,
         }),
       })
 
       if (!response.ok) {
         const errorData = await response.text()
-        console.error("Erro na resposta da API:", errorData)
+        console.error("Erro na resposta da API (updateExistingCart):", errorData)
         throw new Error(`Erro ao atualizar carrinho: ${response.status}`)
       }
-      const result = await response.json()
-      // Atualizar o estado local com os novos dados
-      if (result.itens) {
-        const updatedItemIds: { [productId: string]: string } = {}
-        result.itens.forEach((item: any) => {
-          const productId = typeof item.produto === "object" ? item.produto._id : item.produto
-          updatedItemIds[productId] = item._id
-        })
-        setCartItemIds(updatedItemIds)
-      }
-      return result
+      const updatedCart = await response.json()
+      updateLocalCartState(updatedCart) // Atualiza todo o estado local do carrinho
     } catch (error) {
       console.error("Erro ao atualizar carrinho:", error)
       throw error
     }
   }
 
-  const createOrUpdateCart = async (productId: string, quantity: number) => {
-    // Não tentar fazer requisições se não temos clienteId
+  // Nova função para remover um item do carrinho
+  const removeItemFromCart = async (productId: string) => {
     if (!clienteId || !isClient) {
       console.warn("Cliente ID não disponível ainda")
       return
     }
+    const itemId = cartItemIds[productId]
+    if (!itemId) {
+      console.warn(`Tentativa de remover item ${productId} que não possui itemId no estado local.`)
+      // Se o itemId estiver faltando, apenas atualiza o estado local e retorna
+      setCart((prev) => {
+        const newCart = { ...prev }
+        delete newCart[productId]
+        return newCart
+      })
+      setCartItemIds((prev) => {
+        const newItemIds = { ...prev }
+        delete newItemIds[productId]
+        return newItemIds
+      })
+      // Se o carrinho ficar vazio, define cartExists como false
+      if (Object.keys(cart).length === 1 && cart[productId] === 1) {
+        // Se este era o último item
+        setCartExists(false)
+      }
+      return
+    }
 
     try {
-      // Verificar se já temos um item ID para este produto
-      const hasItemId = cartItemIds[productId]
-      if (!cartExists || !hasItemId) {
-        try {
-          const result = await createNewCart(productId, quantity)
-          setCartExists(true)
-          return result
-        } catch (error) {
-          // Se falhar na criação, pode ser porque já existe - tentar update
-          return await updateExistingCart(productId, quantity)
-        }
-      } else {
-        // Carrinho já existe, apenas atualizar
-        return await updateExistingCart(productId, quantity)
+      const response = await fetch(`/api/carrinho/${clienteId}/item/${itemId}`, {
+        method: "DELETE",
+        headers: {
+          "Content-Type": "application/json",
+        },
+      })
+
+      if (!response.ok) {
+        const errorData = await response.text()
+        console.error("Erro na resposta da API (removeItemFromCart):", errorData)
+        throw new Error(`Erro ao remover item do carrinho: ${response.status}`)
       }
+      // Após a exclusão bem-sucedida, recarrega o carrinho para obter o estado mais recente
+      await loadExistingCart(clienteId)
     } catch (error) {
-      console.error("Erro ao gerenciar carrinho:", error)
+      console.error("Erro ao remover item do carrinho:", error)
       throw error
     }
   }
 
   const addToCart = async (productId: string) => {
-    // Atualizar o estado local imediatamente para feedback visual
     const currentQuantity = cart[productId] || 0
     const newQuantity = currentQuantity + 1
+
+    // Atualização otimista da UI
     setCart((prev) => ({
       ...prev,
       [productId]: newQuantity,
     }))
 
-    // Tentar sincronizar com a API se possível
     if (clienteId && isClient) {
       try {
-        await createOrUpdateCart(productId, newQuantity)
+        if (currentQuantity === 0) {
+          // Item não está no carrinho, adiciona-o
+          await addNewItemToCart(productId, newQuantity)
+        } else {
+          // Item já está no carrinho, atualiza sua quantidade
+          await updateExistingCart(productId, newQuantity)
+        }
       } catch (error) {
         console.error("Erro ao adicionar ao carrinho:", error)
-        // Reverter o estado local em caso de erro
+        // Reverte a atualização otimista em caso de erro
         setCart((prev) => ({
           ...prev,
           [productId]: currentQuantity,
@@ -362,24 +370,25 @@ export default function MenuPage() {
     if (currentQuantity <= 0) return
 
     const newQuantity = currentQuantity - 1
-    // Atualizar o estado local imediatamente
+
+    // Atualização otimista da UI
     setCart((prev) => ({
       ...prev,
       [productId]: Math.max(newQuantity, 0),
     }))
 
-    // Tentar sincronizar com a API se possível
-    if (clienteId && isClient && cartExists) {
+    if (clienteId && isClient) {
       try {
-        if (newQuantity > 0) {
-          await updateExistingCart(productId, newQuantity)
+        if (newQuantity === 0) {
+          // Quantidade se torna 0, remove o item do carrinho
+          await removeItemFromCart(productId)
         } else {
-          // Se quantidade for 0, ainda mantemos o item no carrinho com quantidade 0
-          await updateExistingCart(productId, 0)
+          // Quantidade ainda é > 0, atualiza sua quantidade
+          await updateExistingCart(productId, newQuantity)
         }
       } catch (error) {
         console.error("Erro ao remover do carrinho:", error)
-        // Reverter o estado local em caso de erro
+        // Reverte a atualização otimista em caso de erro
         setCart((prev) => ({
           ...prev,
           [productId]: currentQuantity,

@@ -1,6 +1,6 @@
-const express = require('express');
-const router = express.Router();
-const carrinhoController = require('../controllers/carrinhoController');
+const express = require("express")
+const router = express.Router()
+const carrinhoController = require("../controllers/carrinhoController")
 
 /**
  * @swagger
@@ -51,7 +51,7 @@ const carrinhoController = require('../controllers/carrinhoController');
  *       201:
  *         description: Carrinho criado com sucesso
  */
-router.post('/', carrinhoController.criarCarrinho);
+router.post("/", carrinhoController.criarCarrinho)
 
 /**
  * @swagger
@@ -70,7 +70,7 @@ router.post('/', carrinhoController.criarCarrinho);
  *       200:
  *         description: Carrinho encontrado
  */
-router.get('/:clienteId', carrinhoController.verCarrinho);
+router.get("/:clienteId", carrinhoController.verCarrinho)
 
 /**
  * @swagger
@@ -108,7 +108,7 @@ router.get('/:clienteId', carrinhoController.verCarrinho);
  *       200:
  *         description: Carrinho atualizado
  */
-router.put('/:clienteId', carrinhoController.modificarItem);
+router.put("/:clienteId", carrinhoController.modificarItem)
 
 /**
  * @swagger
@@ -131,7 +131,7 @@ router.put('/:clienteId', carrinhoController.modificarItem);
  *       200:
  *         description: Item removido do carrinho
  */
-router.delete('/:clienteId/item/:itemId', carrinhoController.removerItem);
+router.delete("/:clienteId/item/:itemId", carrinhoController.removerItem)
 
 /**
  * @swagger
@@ -149,6 +149,50 @@ router.delete('/:clienteId/item/:itemId', carrinhoController.removerItem);
  *       200:
  *         description: Carrinho limpo com sucesso
  */
-router.delete('/:clienteId', carrinhoController.limparCarrinho);
+router.delete("/:clienteId", carrinhoController.limparCarrinho)
 
-module.exports = router;
+/**
+ * @swagger
+ * /carrinho/{clienteId}/item:
+ *   post:
+ *     summary: Adiciona um novo item ao carrinho existente ou cria um novo carrinho se não existir
+ *     tags: [Carrinho]
+ *     parameters:
+ *       - in: path
+ *         name: clienteId
+ *         required: true
+ *         description: ID do cliente
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - produtoId
+ *               - quantidade
+ *             properties:
+ *               produtoId:
+ *                 type: string
+ *                 description: ID do produto a ser adicionado
+ *               quantidade:
+ *                 type: integer
+ *                 description: Quantidade do produto
+ *               observacao:
+ *                 type: string
+ *                 description: Observação para o item (opcional)
+ *             example:
+ *               produtoId: "60d21b4667d0d8992e610c87"
+ *               quantidade: 1
+ *               observacao: "Bem passado"
+ *     responses:
+ *       200:
+ *         description: Item adicionado/atualizado no carrinho
+ *       201:
+ *         description: Novo carrinho criado com o item
+ */
+router.post("/:clienteId/item", carrinhoController.adicionarItemAoCarrinho)
+
+module.exports = router

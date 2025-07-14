@@ -150,6 +150,7 @@ export default function CartPage() {
   const handleOrder = async () => {
     if (!cartItems.length) return
 
+    // Set loading to true immediately when the order process starts
     setLoading(true)
     try {
       const res = await fetch("/api/pedidos", {
@@ -179,11 +180,13 @@ export default function CartPage() {
     } catch (e) {
       console.error("Erro ao criar pedido:", e)
     } finally {
-      setLoading(false)
+      // setLoading(false) // No longer needed here as we navigate away
     }
   }
 
-  if (loading) {
+  // Only show loading screen if loading is true
+  if (loading && cartItems.length === 0) {
+    // Added condition to prevent showing loading if cart is already loaded and empty
     return (
       <div className="min-h-screen flex items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
@@ -192,7 +195,8 @@ export default function CartPage() {
     )
   }
 
-  if (cartItems.length === 0) {
+  // Only show empty cart if not loading and cart is empty
+  if (!loading && cartItems.length === 0) {
     return (
       <div className="min-h-screen bg-gray-50">
         <header className="bg-white shadow-sm border-b">
