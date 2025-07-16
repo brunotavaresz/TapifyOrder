@@ -41,6 +41,30 @@ router.post('/', pedidoController.criarPedido);
 
 /**
  * @swagger
+ * /pedidos/{id}:
+ *   delete:
+ *     summary: Deleta um pedido completo pelo ID
+ *     tags: [Pedido]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID do pedido a ser deletado
+ *     responses:
+ *       204:
+ *         description: Pedido deletado com sucesso
+ *       404:
+ *         description: Pedido não encontrado
+ *       500:
+ *         description: Erro interno do servidor
+ */
+router.delete('/:id', pedidoController.deletarPedido);
+
+
+/**
+ * @swagger
  * /pedidos/cliente/{clienteId}:
  *   get:
  *     summary: Lista todos os pedidos de um cliente

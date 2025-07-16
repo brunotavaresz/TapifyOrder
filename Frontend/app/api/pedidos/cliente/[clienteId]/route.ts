@@ -1,3 +1,4 @@
+// app/api/pedidos/cliente/[clienteId]/route.ts
 import { type NextRequest, NextResponse } from "next/server"
 
 export async function GET(request: NextRequest, { params }: { params: { clienteId: string } }) {

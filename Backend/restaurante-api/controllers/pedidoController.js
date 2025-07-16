@@ -47,6 +47,24 @@ exports.criarPedido = async (req, res) => {
   }
 };
 
+exports.deletarPedido = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const pedido = await Pedido.findById(id);
+    if (!pedido) {
+      return res.status(404).json({ error: 'Pedido não encontrado' });
+    }
+
+    await pedido.deleteOne(); // remove o pedido do banco
+
+    res.status(204).send(); // sucesso sem conteúdo
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+
+
 exports.verPedidosCliente = async (req, res) => {
   try {
     const pedidos = await Pedido.find({ clienteId: req.params.clienteId }).populate('itens.produto');
