@@ -543,7 +543,7 @@ const deleteOrder = async (orderId: string) => {
                       <div className="flex flex-col lg:flex-row lg:items-center space-y-2 lg:space-y-0 lg:space-x-4">
                         <div className="text-left lg:text-right">
                           <div className="text-xl lg:text-2xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
-                            R$ {order.total.toFixed(2)}
+                            € {order.total.toFixed(2)}
                           </div>
                         </div>
                         <AlertDialog>
@@ -597,7 +597,7 @@ const deleteOrder = async (orderId: string) => {
                                   <span>{item.quantidade}x {item.nome}</span>
                                 </div>
                                 <span className="text-sm text-gray-500">
-                                  R$ {(item.preco * item.quantidade).toFixed(2)}
+                                  € {(item.preco * item.quantidade).toFixed(2)}
                                 </span>
                               </li>
                             ))}

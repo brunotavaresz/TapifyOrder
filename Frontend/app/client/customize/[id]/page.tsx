@@ -154,7 +154,7 @@ export default function CustomizePage({ params }: { params: { id: string } }) {
             <CardHeader>
               <CardTitle className="text-2xl">{item.name}</CardTitle>
               <CardDescription>Personalize seu pedido do jeito que você gosta</CardDescription>
-              <div className="text-xl font-bold text-orange-600">Preço base: R$ {item.basePrice.toFixed(2)}</div>
+              <div className="text-xl font-bold text-orange-600">Preço base: € {item.basePrice.toFixed(2)}</div>
             </CardHeader>
           </Card>
 
@@ -180,9 +180,9 @@ export default function CustomizePage({ params }: { params: { id: string } }) {
                         </Label>
                       </div>
                       <span className="text-sm font-medium">
-                        {option.price > 0 && `+R$ ${option.price.toFixed(2)}`}
+                        {option.price > 0 && `+€ ${option.price.toFixed(2)}`}
                         {option.price === 0 && "Grátis"}
-                        {option.price < 0 && `-R$ ${Math.abs(option.price).toFixed(2)}`}
+                        {option.price < 0 && `-€ ${Math.abs(option.price).toFixed(2)}`}
                       </span>
                     </div>
                   ))}
@@ -214,9 +214,9 @@ export default function CustomizePage({ params }: { params: { id: string } }) {
                             </Label>
                           </div>
                           <span className="text-sm font-medium">
-                            {option.price > 0 && `+R$ ${option.price.toFixed(2)}`}
+                            {option.price > 0 && `+€ ${option.price.toFixed(2)}`}
                             {option.price === 0 && "Padrão"}
-                            {option.price < 0 && `-R$ ${Math.abs(option.price).toFixed(2)}`}
+                            {option.price < 0 && `-€ ${Math.abs(option.price).toFixed(2)}`}
                           </span>
                         </div>
                       ))}
@@ -235,7 +235,7 @@ export default function CustomizePage({ params }: { params: { id: string } }) {
                 <div className="space-y-2">
                   <div className="flex justify-between">
                     <span>Preço base:</span>
-                    <span>R$ {item.basePrice.toFixed(2)}</span>
+                    <span>€ {item.basePrice.toFixed(2)}</span>
                   </div>
 
                   {selectedOptions.map((optionId) => {
@@ -244,7 +244,7 @@ export default function CustomizePage({ params }: { params: { id: string } }) {
                     return (
                       <div key={optionId} className="flex justify-between text-sm">
                         <span>{option.name}:</span>
-                        <span>+R$ {option.price.toFixed(2)}</span>
+                        <span>+€ {option.price.toFixed(2)}</span>
                       </div>
                     )
                   })}
@@ -257,8 +257,8 @@ export default function CustomizePage({ params }: { params: { id: string } }) {
                         <span>{option.name}:</span>
                         <span>
                           {option.price > 0
-                            ? `+R$ ${option.price.toFixed(2)}`
-                            : `-R$ ${Math.abs(option.price).toFixed(2)}`}
+                            ? `+€ ${option.price.toFixed(2)}`
+                            : `-€ ${Math.abs(option.price).toFixed(2)}`}
                         </span>
                       </div>
                     )
@@ -267,7 +267,7 @@ export default function CustomizePage({ params }: { params: { id: string } }) {
                   <div className="border-t pt-2">
                     <div className="flex justify-between text-lg font-bold">
                       <span>Total:</span>
-                      <span className="text-orange-600">R$ {calculateTotalPrice().toFixed(2)}</span>
+                      <span className="text-orange-600">€ {calculateTotalPrice().toFixed(2)}</span>
                     </div>
                   </div>
                 </div>
@@ -277,7 +277,7 @@ export default function CustomizePage({ params }: { params: { id: string } }) {
             {/* Add to Cart Button */}
             <Button className="w-full" size="lg" onClick={addToCart}>
               <Plus className="h-5 w-5 mr-2" />
-              Adicionar ao Carrinho - R$ {calculateTotalPrice().toFixed(2)}
+              Adicionar ao Carrinho - € {calculateTotalPrice().toFixed(2)}
             </Button>
           </div>
         </div>

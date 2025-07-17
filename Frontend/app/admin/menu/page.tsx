@@ -411,7 +411,7 @@ export default function AdminMenuPage() {
                           </div>
                           <div className="flex flex-col lg:items-end space-y-3">
                             <div className="text-xl lg:text-2xl font-bold text-blue-600">
-                              R$ {item.preco.toFixed(2)}
+                              € {item.preco.toFixed(2)}
                             </div>
                             <div className="flex items-center space-x-2">
                               <Switch checked={item.disponivel} onCheckedChange={() => toggleAvailability(item._id)} />
@@ -483,7 +483,7 @@ export default function AdminMenuPage() {
                                     {item.nome}
                                   </h4>
                                   <span className="text-base lg:text-lg font-bold text-blue-600 ml-2">
-                                    R$ {item.preco.toFixed(2)}
+                                    € {item.preco.toFixed(2)}
                                   </span>
                                 </div>
                                 <p className="text-xs lg:text-sm text-gray-600 mb-2 line-clamp-2">{item.descricao}</p>
@@ -546,7 +546,7 @@ function EditItemForm({
           />
         </div>
         <div>
-          <Label className="text-sm">Preço (R$)</Label>
+          <Label className="text-sm">Preço (€)</Label>
           <Input
             type="number"
             step="0.01"
