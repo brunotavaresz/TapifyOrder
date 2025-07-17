@@ -95,9 +95,9 @@ export default function AdminPage() {
       numeroMesa: order.numeroMesa,
       items: order.itens?.map((item: any) => ({
         id: item._id,
-        produtoId: item.produto._id,
-        nome: item.produto.nome,
-        preco: item.produto.preco,
+        produtoId: item.produto && item.produto._id ? item.produto._id : null,
+        nome: item.produto && item.produto.nome ? item.produto.nome : "Produto removido",
+        preco: item.produto && typeof item.produto.preco === "number" ? item.produto.preco : 0,
         quantidade: item.quantidade,
         observacoes: item.observacao || undefined
       })) || [],

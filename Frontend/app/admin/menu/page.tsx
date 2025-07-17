@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -10,103 +10,186 @@ import { Textarea } from "@/components/ui/textarea"
 import { Switch } from "@/components/ui/switch"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
-import { ChefHat, ArrowLeft, Plus, Edit, Trash2, Eye, Save, X } from "lucide-react"
+import { ChefHat, ArrowLeft, Plus, Edit, Trash2, Eye, Save, X, Loader2 } from "lucide-react"
 
 interface MenuItem {
-  id: number
-  name: string
-  description: string
-  price: number
-  category: string
-  image: string
-  customizable: boolean
-  available: boolean
-  rating: number
-  prepTime: string
+  _id: string
+  nome: string
+  descricao: string
+  preco: number
+  categoria: string
+  foto: string
+  personalizavel: boolean
+  disponivel: boolean
+  tempoPreparo: number
+}
+
+interface NewMenuItem {
+  nome: string
+  descricao: string
+  preco: number
+  categoria: string
+  foto: string
+  personalizavel: boolean
+  disponivel: boolean
+  tempoPreparo: number
 }
 
 export default function AdminMenuPage() {
-  const [menuItems, setMenuItems] = useState<MenuItem[]>([
-    {
-      id: 1,
-      name: "Pizza Margherita Artesanal",
-      description: "Molho de tomate San Marzano, mozzarella di bufala, manjericão fresco e azeite extra virgem",
-      price: 32.9,
-      category: "Pratos Principais",
-      image: "🍕",
-      customizable: true,
-      available: true,
-      rating: 4.8,
-      prepTime: "25-30 min",
-    },
-    {
-      id: 2,
-      name: "Salada Caesar Premium",
-      description: "Alface romana crocante, croutons artesanais, parmesão reggiano e molho caesar tradicional",
-      price: 24.5,
-      category: "Entradas",
-      image: "🥗",
-      customizable: true,
-      available: true,
-      rating: 4.6,
-      prepTime: "10-15 min",
-    },
-  ])
-
+  const [menuItems, setMenuItems] = useState<MenuItem[]>([])
+  const [loading, setLoading] = useState(true)
   const [editingItem, setEditingItem] = useState<MenuItem | null>(null)
   const [showPreview, setShowPreview] = useState(false)
-  const [newItem, setNewItem] = useState<Partial<MenuItem>>({
-    name: "",
-    description: "",
-    price: 0,
-    category: "Pratos Principais",
-    image: "🍽️",
-    customizable: false,
-    available: true,
-    prepTime: "15 min",
+  const [newItem, setNewItem] = useState<NewMenuItem>({
+    nome: "",
+    descricao: "",
+    preco: 0,
+    categoria: "prato principal",
+    foto: "",
+    personalizavel: false,
+    disponivel: true,
+    tempoPreparo: 15,
   })
 
-  const categories = ["Entradas", "Pratos Principais", "Sobremesas", "Bebidas"]
+  const categories = ["entrada", "prato principal", "sobremesa", "bebidas"]
 
-  const handleSaveItem = (item: MenuItem) => {
-    setMenuItems((prev) => prev.map((i) => (i.id === item.id ? item : i)))
-    setEditingItem(null)
-  }
+  // Carregar produtos ao montar o componente
+  useEffect(() => {
+    fetchMenuItems()
+  }, [])
 
-  const handleDeleteItem = (id: number) => {
-    setMenuItems((prev) => prev.filter((i) => i.id !== id))
-  }
-
-  const handleAddItem = () => {
-    if (newItem.name && newItem.description && newItem.price) {
-      const item: MenuItem = {
-        id: Date.now(),
-        name: newItem.name,
-        description: newItem.description,
-        price: newItem.price,
-        category: newItem.category || "Pratos Principais",
-        image: newItem.image || "🍽️",
-        customizable: newItem.customizable || false,
-        available: newItem.available !== false,
-        rating: 4.0,
-        prepTime: newItem.prepTime || "15 min",
+  const fetchMenuItems = async () => {
+    try {
+      setLoading(true)
+      const response = await fetch('/api/produtos')
+      if (!response.ok) {
+        throw new Error('Erro ao carregar produtos')
       }
-      setMenuItems((prev) => [...prev, item])
-      setNewItem({
-        name: "",
-        description: "",
-        price: 0,
-        category: "Pratos Principais",
-        image: "🍽️",
-        customizable: false,
-        available: true,
-        prepTime: "15 min",
-      })
+      const data = await response.json()
+      setMenuItems(data)
+    } catch (error) {
+      console.error('Erro ao carregar produtos:', error)
+    } finally {
+      setLoading(false)
     }
   }
 
-  const toggleAvailability = (id: number) => {
-    setMenuItems((prev) => prev.map((item) => (item.id === id ? { ...item, available: !item.available } : item)))
+  const handleSaveItem = async (item: MenuItem) => {
+    try {
+      const response = await fetch(`/api/produtos/${item._id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          nome: item.nome,
+          descricao: item.descricao,
+          preco: item.preco,
+          categoria: item.categoria,
+          foto: item.foto,
+          personalizavel: item.personalizavel,
+          disponivel: item.disponivel,
+          tempoPreparo: item.tempoPreparo,
+        }),
+      })
+
+      if (!response.ok) {
+        throw new Error('Erro ao atualizar produto')
+      }
+
+      const updatedItem = await response.json()
+      setMenuItems((prev) => prev.map((i) => (i._id === item._id ? updatedItem : i)))
+      setEditingItem(null)
+    } catch (error) {
+      console.error('Erro ao salvar item:', error)
+    }
+  }
+
+  const handleDeleteItem = async (id: string) => {
+    try {
+      const response = await fetch(`/api/produtos/${id}`, {
+        method: 'DELETE',
+      })
+
+      if (!response.ok) {
+        throw new Error('Erro ao remover produto')
+      }
+
+      setMenuItems((prev) => prev.filter((i) => i._id !== id))
+    } catch (error) {
+      console.error('Erro ao deletar item:', error)
+    }
+  }
+
+  const handleAddItem = async () => {
+    if (newItem.nome && newItem.descricao && newItem.preco) {
+      try {
+        const response = await fetch('/api/produtos', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(newItem),
+        })
+
+        if (!response.ok) {
+          throw new Error('Erro ao criar produto')
+        }
+
+        const createdItem = await response.json()
+        setMenuItems((prev) => [...prev, createdItem])
+        setNewItem({
+          nome: "",
+          descricao: "",
+          preco: 0,
+          categoria: "prato principal",
+          foto: "",
+          personalizavel: false,
+          disponivel: true,
+          tempoPreparo: 15,
+        })
+      } catch (error) {
+        console.error('Erro ao adicionar item:', error)
+      }
+    }
+  }
+
+  const toggleAvailability = async (id: string) => {
+    try {
+      const response = await fetch(`/api/produtos/${id}/disponibilidade`, {
+        method: 'PATCH',
+      })
+
+      if (!response.ok) {
+        throw new Error('Erro ao alterar disponibilidade')
+      }
+
+      const updatedItem = await response.json()
+      setMenuItems((prev) => prev.map((item) => (item._id === id ? updatedItem : item)))
+    } catch (error) {
+      console.error('Erro ao alterar disponibilidade:', error)
+    }
+  }
+
+  const formatCategory = (category: string) => {
+    const categoryMap: { [key: string]: string } = {
+      "entrada": "Entradas",
+      "prato principal": "Pratos Principais", 
+      "sobremesa": "Sobremesas",
+      "bebidas": "Bebidas"
+    }
+    return categoryMap[category] || category
+  }
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 flex items-center justify-center">
+        <div className="flex items-center space-x-2">
+          <Loader2 className="h-6 w-6 animate-spin text-blue-600" />
+          <span className="text-lg text-gray-600">Carregando menu...</span>
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -167,22 +250,22 @@ export default function AdminMenuPage() {
                     </Label>
                     <Input
                       id="new-name"
-                      value={newItem.name}
-                      onChange={(e) => setNewItem((prev) => ({ ...prev, name: e.target.value }))}
+                      value={newItem.nome}
+                      onChange={(e) => setNewItem((prev) => ({ ...prev, nome: e.target.value }))}
                       placeholder="Ex: Pizza Margherita"
                       className="text-sm"
                     />
                   </div>
                   <div>
                     <Label htmlFor="new-price" className="text-sm">
-                      Preço (R$)
+                      Preço (€)
                     </Label>
                     <Input
                       id="new-price"
                       type="number"
                       step="0.01"
-                      value={newItem.price}
-                      onChange={(e) => setNewItem((prev) => ({ ...prev, price: Number.parseFloat(e.target.value) }))}
+                      value={newItem.preco}
+                      onChange={(e) => setNewItem((prev) => ({ ...prev, preco: Number.parseFloat(e.target.value) }))}
                       placeholder="0.00"
                       className="text-sm"
                     />
@@ -194,21 +277,33 @@ export default function AdminMenuPage() {
                   </Label>
                   <Textarea
                     id="new-description"
-                    value={newItem.description}
-                    onChange={(e) => setNewItem((prev) => ({ ...prev, description: e.target.value }))}
+                    value={newItem.descricao}
+                    onChange={(e) => setNewItem((prev) => ({ ...prev, descricao: e.target.value }))}
                     placeholder="Descreva os ingredientes e características do prato"
                     rows={3}
                     className="text-sm"
                   />
                 </div>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div>
+                  <Label htmlFor="new-foto" className="text-sm">
+                    URL da Foto
+                  </Label>
+                  <Input
+                    id="new-foto"
+                    value={newItem.foto}
+                    onChange={(e) => setNewItem((prev) => ({ ...prev, foto: e.target.value }))}
+                    placeholder="https://exemplo.com/foto.jpg"
+                    className="text-sm"
+                  />
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
                     <Label htmlFor="new-category" className="text-sm">
                       Categoria
                     </Label>
                     <Select
-                      value={newItem.category}
-                      onValueChange={(value) => setNewItem((prev) => ({ ...prev, category: value }))}
+                      value={newItem.categoria}
+                      onValueChange={(value) => setNewItem((prev) => ({ ...prev, categoria: value }))}
                     >
                       <SelectTrigger className="text-sm">
                         <SelectValue />
@@ -216,33 +311,22 @@ export default function AdminMenuPage() {
                       <SelectContent>
                         {categories.map((cat) => (
                           <SelectItem key={cat} value={cat} className="text-sm">
-                            {cat}
+                            {formatCategory(cat)}
                           </SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
                   </div>
                   <div>
-                    <Label htmlFor="new-image" className="text-sm">
-                      Emoji
-                    </Label>
-                    <Input
-                      id="new-image"
-                      value={newItem.image}
-                      onChange={(e) => setNewItem((prev) => ({ ...prev, image: e.target.value }))}
-                      placeholder="🍽️"
-                      className="text-sm"
-                    />
-                  </div>
-                  <div>
                     <Label htmlFor="new-preptime" className="text-sm">
-                      Tempo de Preparo
+                      Tempo de Preparo (min)
                     </Label>
                     <Input
                       id="new-preptime"
-                      value={newItem.prepTime}
-                      onChange={(e) => setNewItem((prev) => ({ ...prev, prepTime: e.target.value }))}
-                      placeholder="15 min"
+                      type="number"
+                      value={newItem.tempoPreparo}
+                      onChange={(e) => setNewItem((prev) => ({ ...prev, tempoPreparo: Number.parseInt(e.target.value) }))}
+                      placeholder="15"
                       className="text-sm"
                     />
                   </div>
@@ -250,8 +334,8 @@ export default function AdminMenuPage() {
                 <div className="flex items-center space-x-2">
                   <Switch
                     id="new-customizable"
-                    checked={newItem.customizable}
-                    onCheckedChange={(checked) => setNewItem((prev) => ({ ...prev, customizable: checked }))}
+                    checked={newItem.personalizavel}
+                    onCheckedChange={(checked) => setNewItem((prev) => ({ ...prev, personalizavel: checked }))}
                   />
                   <Label htmlFor="new-customizable" className="text-sm">
                     Personalizável
@@ -271,9 +355,9 @@ export default function AdminMenuPage() {
             <div className="space-y-4">
               <h2 className="text-xl lg:text-2xl font-bold text-gray-800">Itens do Menu</h2>
               {menuItems.map((item) => (
-                <Card key={item.id} className={`border-blue-100 ${!item.available ? "opacity-60" : ""}`}>
+                <Card key={item._id} className={`border-blue-100 ${!item.disponivel ? "opacity-60" : ""}`}>
                   <CardContent className="p-4 lg:p-6">
-                    {editingItem?.id === item.id ? (
+                    {editingItem?._id === item._id ? (
                       <EditItemForm
                         item={editingItem}
                         onSave={handleSaveItem}
@@ -284,38 +368,53 @@ export default function AdminMenuPage() {
                       <div className="space-y-4">
                         <div className="flex flex-col lg:flex-row lg:items-start justify-between space-y-4 lg:space-y-0">
                           <div className="flex items-start space-x-3 lg:space-x-4 flex-1">
-                            <div className="text-3xl lg:text-4xl">{item.image}</div>
+                            <div className="w-16 h-16 lg:w-20 lg:h-20 rounded-lg overflow-hidden bg-gray-100 flex-shrink-0">
+                              {item.foto ? (
+                                <img 
+                                  src={item.foto} 
+                                  alt={item.nome}
+                                  className="w-full h-full object-cover"
+                                  onError={(e) => {
+                                    e.currentTarget.style.display = 'none';
+                                    e.currentTarget.nextElementSibling?.classList.remove('hidden');
+                                  }}
+                                />
+                              ) : null}
+                              <div className={`w-full h-full flex items-center justify-center text-2xl lg:text-3xl ${item.foto ? 'hidden' : ''}`}>
+                                🍽️
+                              </div>
+                            </div>
                             <div className="flex-1 min-w-0">
                               <div className="flex flex-col lg:flex-row lg:items-center space-y-2 lg:space-y-0 lg:space-x-2 mb-2">
                                 <h3 className="text-base lg:text-lg font-semibold text-gray-800 truncate">
-                                  {item.name}
+                                  {item.nome}
                                 </h3>
                                 <div className="flex items-center space-x-2">
-                                  {item.customizable && (
+                                  {item.personalizavel && (
                                     <Badge variant="secondary" className="bg-blue-100 text-blue-700 text-xs">
                                       Personalizável
                                     </Badge>
                                   )}
-                                  {!item.available && (
+                                  {!item.disponivel && (
                                     <Badge variant="destructive" className="text-xs">
                                       Indisponível
                                     </Badge>
                                   )}
                                 </div>
                               </div>
-                              <p className="text-sm lg:text-base text-gray-600 mb-2 line-clamp-2">{item.description}</p>
+                              <p className="text-sm lg:text-base text-gray-600 mb-2 line-clamp-2">{item.descricao}</p>
                               <div className="flex flex-col sm:flex-row sm:items-center sm:space-x-4 space-y-1 sm:space-y-0 text-xs lg:text-sm text-gray-500">
-                                <span>Categoria: {item.category}</span>
-                                <span>Preparo: {item.prepTime}</span>
+                                <span>Categoria: {formatCategory(item.categoria)}</span>
+                                <span>Preparo: {item.tempoPreparo} min</span>
                               </div>
                             </div>
                           </div>
                           <div className="flex flex-col lg:items-end space-y-3">
                             <div className="text-xl lg:text-2xl font-bold text-blue-600">
-                              R$ {item.price.toFixed(2)}
+                              R$ {item.preco.toFixed(2)}
                             </div>
                             <div className="flex items-center space-x-2">
-                              <Switch checked={item.available} onCheckedChange={() => toggleAvailability(item.id)} />
+                              <Switch checked={item.disponivel} onCheckedChange={() => toggleAvailability(item._id)} />
                               <Button
                                 variant="outline"
                                 size="sm"
@@ -327,7 +426,7 @@ export default function AdminMenuPage() {
                               <Button
                                 variant="outline"
                                 size="sm"
-                                onClick={() => handleDeleteItem(item.id)}
+                                onClick={() => handleDeleteItem(item._id)}
                                 className="border-red-200 text-red-600 hover:bg-red-50 text-xs lg:text-sm"
                               >
                                 <Trash2 className="h-3 lg:h-4 w-3 lg:w-4" />
@@ -358,24 +457,39 @@ export default function AdminMenuPage() {
                   <CardContent className="p-3 lg:p-4 max-h-96 overflow-y-auto">
                     <div className="space-y-3 lg:space-y-4">
                       {menuItems
-                        .filter((item) => item.available)
+                        .filter((item) => item.disponivel)
                         .map((item) => (
-                          <div key={item.id} className="border border-gray-200 rounded-lg p-3 lg:p-4">
+                          <div key={item._id} className="border border-gray-200 rounded-lg p-3 lg:p-4">
                             <div className="flex items-start space-x-3">
-                              <div className="text-2xl lg:text-3xl">{item.image}</div>
+                              <div className="w-12 h-12 lg:w-16 lg:h-16 rounded-lg overflow-hidden bg-gray-100 flex-shrink-0">
+                                {item.foto ? (
+                                  <img 
+                                    src={item.foto} 
+                                    alt={item.nome}
+                                    className="w-full h-full object-cover"
+                                    onError={(e) => {
+                                      e.currentTarget.style.display = 'none';
+                                      e.currentTarget.nextElementSibling?.classList.remove('hidden');
+                                    }}
+                                  />
+                                ) : null}
+                                <div className={`w-full h-full flex items-center justify-center text-lg lg:text-xl ${item.foto ? 'hidden' : ''}`}>
+                                  🍽️
+                                </div>
+                              </div>
                               <div className="flex-1 min-w-0">
                                 <div className="flex items-center justify-between mb-2">
                                   <h4 className="font-semibold text-gray-800 text-sm lg:text-base truncate">
-                                    {item.name}
+                                    {item.nome}
                                   </h4>
                                   <span className="text-base lg:text-lg font-bold text-blue-600 ml-2">
-                                    R$ {item.price.toFixed(2)}
+                                    R$ {item.preco.toFixed(2)}
                                   </span>
                                 </div>
-                                <p className="text-xs lg:text-sm text-gray-600 mb-2 line-clamp-2">{item.description}</p>
+                                <p className="text-xs lg:text-sm text-gray-600 mb-2 line-clamp-2">{item.descricao}</p>
                                 <div className="flex items-center justify-between">
-                                  <span className="text-xs text-gray-500">{item.prepTime}</span>
-                                  {item.customizable && (
+                                  <span className="text-xs text-gray-500">{item.tempoPreparo} min</span>
+                                  {item.personalizavel && (
                                     <Badge variant="secondary" className="text-xs">
                                       Personalizável
                                     </Badge>
@@ -410,14 +524,24 @@ function EditItemForm({
 }) {
   const [editedItem, setEditedItem] = useState(item)
 
+  const formatCategory = (category: string) => {
+    const categoryMap: { [key: string]: string } = {
+      "entrada": "Entradas",
+      "prato principal": "Pratos Principais", 
+      "sobremesa": "Sobremesas",
+      "bebidas": "Bebidas"
+    }
+    return categoryMap[category] || category
+  }
+
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
           <Label className="text-sm">Nome do Prato</Label>
           <Input
-            value={editedItem.name}
-            onChange={(e) => setEditedItem((prev) => ({ ...prev, name: e.target.value }))}
+            value={editedItem.nome}
+            onChange={(e) => setEditedItem((prev) => ({ ...prev, nome: e.target.value }))}
             className="text-sm"
           />
         </div>
@@ -426,8 +550,8 @@ function EditItemForm({
           <Input
             type="number"
             step="0.01"
-            value={editedItem.price}
-            onChange={(e) => setEditedItem((prev) => ({ ...prev, price: Number.parseFloat(e.target.value) }))}
+            value={editedItem.preco}
+            onChange={(e) => setEditedItem((prev) => ({ ...prev, preco: Number.parseFloat(e.target.value) }))}
             className="text-sm"
           />
         </div>
@@ -435,18 +559,27 @@ function EditItemForm({
       <div>
         <Label className="text-sm">Descrição</Label>
         <Textarea
-          value={editedItem.description}
-          onChange={(e) => setEditedItem((prev) => ({ ...prev, description: e.target.value }))}
+          value={editedItem.descricao}
+          onChange={(e) => setEditedItem((prev) => ({ ...prev, descricao: e.target.value }))}
           rows={3}
           className="text-sm"
         />
       </div>
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      <div>
+        <Label className="text-sm">URL da Foto</Label>
+        <Input
+          value={editedItem.foto}
+          onChange={(e) => setEditedItem((prev) => ({ ...prev, foto: e.target.value }))}
+          placeholder="https://exemplo.com/foto.jpg"
+          className="text-sm"
+        />
+      </div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>
           <Label className="text-sm">Categoria</Label>
           <Select
-            value={editedItem.category}
-            onValueChange={(value) => setEditedItem((prev) => ({ ...prev, category: value }))}
+            value={editedItem.categoria}
+            onValueChange={(value) => setEditedItem((prev) => ({ ...prev, categoria: value }))}
           >
             <SelectTrigger className="text-sm">
               <SelectValue />
@@ -454,33 +587,26 @@ function EditItemForm({
             <SelectContent>
               {categories.map((cat) => (
                 <SelectItem key={cat} value={cat} className="text-sm">
-                  {cat}
+                  {formatCategory(cat)}
                 </SelectItem>
               ))}
             </SelectContent>
           </Select>
         </div>
         <div>
-          <Label className="text-sm">Emoji</Label>
+          <Label className="text-sm">Tempo de Preparo (min)</Label>
           <Input
-            value={editedItem.image}
-            onChange={(e) => setEditedItem((prev) => ({ ...prev, image: e.target.value }))}
-            className="text-sm"
-          />
-        </div>
-        <div>
-          <Label className="text-sm">Tempo de Preparo</Label>
-          <Input
-            value={editedItem.prepTime}
-            onChange={(e) => setEditedItem((prev) => ({ ...prev, prepTime: e.target.value }))}
+            type="number"
+            value={editedItem.tempoPreparo}
+            onChange={(e) => setEditedItem((prev) => ({ ...prev, tempoPreparo: Number.parseInt(e.target.value) }))}
             className="text-sm"
           />
         </div>
       </div>
       <div className="flex items-center space-x-2">
         <Switch
-          checked={editedItem.customizable}
-          onCheckedChange={(checked) => setEditedItem((prev) => ({ ...prev, customizable: checked }))}
+          checked={editedItem.personalizavel}
+          onCheckedChange={(checked) => setEditedItem((prev) => ({ ...prev, personalizavel: checked }))}
         />
         <Label className="text-sm">Personalizável</Label>
       </div>
