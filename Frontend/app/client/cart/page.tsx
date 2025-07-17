@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -23,8 +23,8 @@ export default function CartPage() {
   const [clienteId, setClienteId] = useState<string>("")
   const [loading, setLoading] = useState(true)
   const [updating, setUpdating] = useState<string | null>(null) // Para mostrar loading em itens específicos
+  const [debounceTimeouts, setDebounceTimeouts] = useState<Record<string, NodeJS.Timeout>>({})
 
-  const [specialInstructions, setSpecialInstructions] = useState("")
   const tableNumber = "12" // TODO: integrar com seleção de mesa se necessário
 
   // Função para obter ou gerar o clientId igual ao menu
@@ -36,6 +36,13 @@ export default function CartPage() {
     sessionStorage.setItem("clienteId", newId)
     return newId
   }
+
+  // Cleanup timeouts on unmount
+  useEffect(() => {
+    return () => {
+      Object.values(debounceTimeouts).forEach(timeout => clearTimeout(timeout))
+    }
+  }, [debounceTimeouts])
 
   // Carregar carrinho do backend ao montar
   useEffect(() => {
@@ -62,7 +69,7 @@ export default function CartPage() {
             nome: item.produto?.nome || "",
             preco: item.produto?.preco || 0,
             quantidade: item.quantidade,
-            observacao: item.observacao,
+            observacao: item.observacao || "",
             customizacoes: item.customizacoes || [],
           })),
         )
@@ -116,6 +123,58 @@ export default function CartPage() {
     }
   }
 
+  // Atualizar observação de um item com debounce
+  const updateObservation = useCallback(async (itemId: string, newObservation: string) => {
+    const item = cartItems.find((i) => i._id === itemId)
+    if (!item) return
+
+    try {
+      const res = await fetch(`/api/carrinho/${clienteId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          itemId: itemId,
+          quantidade: item.quantidade,
+          observacao: newObservation,
+        }),
+      })
+
+      if (!res.ok) {
+        console.error("Erro ao atualizar observação")
+      }
+    } catch (e) {
+      console.error("Erro ao atualizar observação:", e)
+    }
+  }, [cartItems, clienteId])
+
+  // Função para lidar com mudanças na observação com debounce
+  const handleObservationChange = (itemId: string, newObservation: string) => {
+    // Atualizar o estado local imediatamente para melhor UX
+    setCartItems((prevItems) => 
+      prevItems.map((i) => (i._id === itemId ? { ...i, observacao: newObservation } : i))
+    )
+
+    // Limpar timeout anterior se existir
+    if (debounceTimeouts[itemId]) {
+      clearTimeout(debounceTimeouts[itemId])
+    }
+
+    // Definir novo timeout para atualizar no backend
+    const newTimeout = setTimeout(() => {
+      updateObservation(itemId, newObservation)
+      setDebounceTimeouts(prev => {
+        const newTimeouts = { ...prev }
+        delete newTimeouts[itemId]
+        return newTimeouts
+      })
+    }, 1000) // Aguarda 1 segundo após parar de escrever
+
+    setDebounceTimeouts(prev => ({
+      ...prev,
+      [itemId]: newTimeout
+    }))
+  }
+
   // Remover item do carrinho usando o endpoint DELETE correto
   const removeItem = async (itemId: string) => {
     const item = cartItems.find((i) => i._id === itemId)
@@ -164,7 +223,6 @@ export default function CartPage() {
             observacao,
           })),
           mesa: tableNumber,
-          observacao: specialInstructions,
         }),
       })
 
@@ -271,7 +329,7 @@ export default function CartPage() {
                   </div>
                 )}
                 <CardContent className="p-6">
-                  <div className="flex items-center justify-between">
+                  <div className="flex items-center justify-between mb-4">
                     <div className="flex-1">
                       <h3 className="font-semibold text-lg text-blue-900">{item.nome}</h3>
                       {item.customizacoes && item.customizacoes.length > 0 && (
@@ -282,12 +340,6 @@ export default function CartPage() {
                               <li key={index}>• {custom}</li>
                             ))}
                           </ul>
-                        </div>
-                      )}
-                      {item.observacao && (
-                        <div className="mt-2">
-                          <p className="text-sm text-blue-600">Observação:</p>
-                          <p className="text-sm text-blue-600">• {item.observacao}</p>
                         </div>
                       )}
                       <p className="text-blue-600 font-bold mt-2">€ {item.preco?.toFixed(2)} cada</p>
@@ -325,6 +377,21 @@ export default function CartPage() {
                       </Button>
                     </div>
                   </div>
+                  
+                  {/* Campo de observação para cada produto */}
+                  <div className="mt-4">
+                    <label className="block text-sm font-medium text-blue-700 mb-2">
+                      Observações para este item:
+                    </label>
+                    <Textarea
+                      placeholder="Ex: Carne mal passada, sem cebola, molho à parte..."
+                      value={item.observacao || ""}
+                      onChange={(e) => handleObservationChange(item._id!, e.target.value)}
+                      rows={2}
+                      className="border-blue-200 focus:border-blue-400 focus:ring-blue-400"
+                    />
+                  </div>
+                  
                   <div className="text-right mt-4">
                     <span className="text-lg font-bold text-blue-700">
                       Subtotal: € {(item.preco * item.quantidade).toFixed(2)}
@@ -355,16 +422,6 @@ export default function CartPage() {
                     <span className="text-blue-700">Total:</span>
                     <span className="text-blue-600">€ {getTotal().toFixed(2)}</span>
                   </div>
-                </div>
-                <div className="pt-4">
-                  <label className="block text-sm font-medium text-blue-700 mb-2">Instruções Especiais:</label>
-                  <Textarea
-                    placeholder="Ex: Sem cebola na pizza, ponto da carne bem passado..."
-                    value={specialInstructions}
-                    onChange={(e) => setSpecialInstructions(e.target.value)}
-                    rows={4}
-                    className="border-blue-200 focus:border-blue-400 focus:ring-blue-400"
-                  />
                 </div>
                 <Button
                   className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white"

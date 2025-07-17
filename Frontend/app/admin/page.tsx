@@ -442,7 +442,7 @@ const deleteOrder = async (orderId: string) => {
               <DollarSign className="h-3 lg:h-4 w-3 lg:w-4 text-green-600" />
             </CardHeader>
             <CardContent className="pb-2">
-              <div className="text-xl lg:text-2xl font-bold text-gray-800">R$ {stats.totalRevenue.toFixed(2)}</div>
+              <div className="text-xl lg:text-2xl font-bold text-gray-800">€{stats.totalRevenue.toFixed(2)}</div>
               <p className="text-xs text-gray-600 mt-1">Faturamento do dia</p>
             </CardContent>
           </Card>
