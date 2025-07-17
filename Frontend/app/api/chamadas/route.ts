@@ -1,3 +1,4 @@
+// app/api/chamadas/route.ts
 import { type NextRequest, NextResponse } from "next/server"
 
 export async function POST(request: NextRequest) {
@@ -34,5 +35,31 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error("Erro ao chamar garçom:", error)
     return NextResponse.json({ error: "Erro interno do servidor" }, { status: 500 })
+  }
+  
+}
+
+export async function GET(request: NextRequest) {
+  try {
+    // Fazer requisição para o backend Express
+    const backendUrl = process.env.BACKEND_URL || "http://localhost:3001"
+    const response = await fetch(`${backendUrl}/chamadas`, {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+      },
+    })
+
+    if (!response.ok) {
+      const errorData = await response.text()
+      console.error("Erro do backend:", errorData)
+      throw new Error(`Erro do backend: ${response.status}`)
+    }
+
+    const chamadas = await response.json()
+    return NextResponse.json(chamadas)
+  } catch (error) {
+    console.error("Erro ao buscar chamadas:", error)
+    return NextResponse.json({ error: "Erro ao buscar chamadas" }, { status: 500 })
   }
 }

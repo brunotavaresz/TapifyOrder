@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { ChefHat, Clock, CheckCircle, Truck, Users, DollarSign, Menu, TrendingUp, RefreshCw, AlertCircle, Trash2, Calendar } from "lucide-react"
+import { ChefHat, Clock, CheckCircle, Truck, Users, DollarSign, Menu, TrendingUp, RefreshCw, AlertCircle, Trash2, Calendar, Bell } from "lucide-react"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import {
   AlertDialog,
@@ -389,6 +389,15 @@ const deleteOrder = async (orderId: string) => {
                 >
                   <Menu className="h-3 lg:h-4 w-3 lg:w-4 mr-1 lg:mr-2" />
                   Gerenciar Menu
+                </Button>
+              </Link>
+              <Link href="/admin/chamadas">
+                <Button
+                  variant="outline"
+                  className="border-blue-200 text-blue-600 hover:bg-blue-50 bg-transparent text-xs lg:text-sm"
+                >
+                  <Bell className="h-3 lg:h-4 w-3 lg:w-4 mr-1 lg:mr-2 text-blue-600" />
+                  Chamadas às Mesas
                 </Button>
               </Link>
               <Link href="/">
