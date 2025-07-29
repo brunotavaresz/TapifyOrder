@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 
-const API_BASE_URL = 'http://localhost:3001' // Ajuste para a URL do seu backend
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL!
 
 export async function GET(
   request: Request,

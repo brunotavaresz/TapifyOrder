@@ -13,7 +13,7 @@ export async function PATCH(
     }
 
     // Fazer requisição para o backend Express
-    const backendUrl = process.env.BACKEND_URL || "http://localhost:3001"
+    const backendUrl = process.env.BACKEND_URL || process.env.NEXT_PUBLIC_API_URL!
     const response = await fetch(`${backendUrl}/chamadas/${id}/resolvido`, {
       method: "PATCH",
       headers: {

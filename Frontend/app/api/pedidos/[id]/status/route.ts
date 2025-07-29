@@ -12,7 +12,7 @@ export async function PATCH(
       return NextResponse.json({ error: "ID do pedido é obrigatório" }, { status: 400 })
     }
 
-    const backendUrl = process.env.BACKEND_URL || "http://localhost:3001"
+    const backendUrl = process.env.BACKEND_URL || process.env.NEXT_PUBLIC_API_URL!
     const response = await fetch(`${backendUrl}/pedidos/${id}/status`, {
       method: "PATCH",
       headers: {

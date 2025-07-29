@@ -1,7 +1,8 @@
 // app/api/carrinho/[clienteId]/route.ts
 import { NextResponse } from 'next/server'
 
-const API_BASE_URL = 'http://localhost:3001'
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL!
+
 
 export async function GET(
   request: Request,
