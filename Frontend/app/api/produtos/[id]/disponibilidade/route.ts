@@ -1,7 +1,8 @@
 // app/api/produtos/[id]/disponibilidade/route.ts
 import { NextResponse } from 'next/server'
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL!
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL! || 'http://localhost:3001' // Default to local if env variable is not set
+
 
 export async function PATCH(
   request: Request,

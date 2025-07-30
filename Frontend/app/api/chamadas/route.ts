@@ -11,7 +11,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Fazer requisição para o backend Express
-    const backendUrl = process.env.BACKEND_URL || process.env.NEXT_PUBLIC_API_URL!
+    const backendUrl = process.env.BACKEND_URL || process.env.NEXT_PUBLIC_API_URL! || "http://localhost:3001"
     const response = await fetch(`${backendUrl}/chamadas/chamar-empregado`, {
       method: "POST",
       headers: {
@@ -42,7 +42,7 @@ export async function POST(request: NextRequest) {
 export async function GET(request: NextRequest) {
   try {
     // Fazer requisição para o backend Express
-    const backendUrl = process.env.BACKEND_URL || process.env.NEXT_PUBLIC_API_URL!
+    const backendUrl = process.env.BACKEND_URL || process.env.NEXT_PUBLIC_API_URL! || "http://localhost:3001"
     const response = await fetch(`${backendUrl}/chamadas`, {
       method: "GET",
       headers: {

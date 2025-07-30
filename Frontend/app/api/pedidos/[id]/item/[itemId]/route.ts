@@ -13,7 +13,7 @@ export async function DELETE(
       return NextResponse.json({ error: "ID do pedido e item são obrigatórios" }, { status: 400 })
     }
 
-    const backendUrl = process.env.BACKEND_URL || process.env.NEXT_PUBLIC_API_URL!
+    const backendUrl = process.env.BACKEND_URL || process.env.NEXT_PUBLIC_API_URL! || "http://localhost:3001"
 
     const response = await fetch(`${backendUrl}/pedidos/${id}/item/${itemId}`, {
       method: "DELETE",

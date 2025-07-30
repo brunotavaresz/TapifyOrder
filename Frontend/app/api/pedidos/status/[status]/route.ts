@@ -11,7 +11,7 @@ export async function GET(
       return NextResponse.json({ error: "Status é obrigatório" }, { status: 400 })
     }
 
-    const backendUrl = process.env.BACKEND_URL || process.env.NEXT_PUBLIC_API_URL!
+    const backendUrl = process.env.BACKEND_URL || process.env.NEXT_PUBLIC_API_URL! || "http://localhost:3001"
     const response = await fetch(`${backendUrl}/pedidos/status/${status}`, {
       method: "GET",
       headers: {
