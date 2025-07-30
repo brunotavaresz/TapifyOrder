@@ -6,7 +6,21 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { ChefHat, Clock, CheckCircle, Truck, Users, DollarSign, Menu, TrendingUp, RefreshCw, AlertCircle, Trash2, Calendar, Bell } from "lucide-react"
+import {
+  ChefHat,
+  Clock,
+  CheckCircle,
+  Truck,
+  Users,
+  DollarSign,
+  Menu,
+  RefreshCw,
+  AlertCircle,
+  Trash2,
+  Calendar,
+  Bell,
+  MenuIcon,
+} from "lucide-react"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import {
   AlertDialog,
@@ -19,6 +33,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
+import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
 
 interface OrderItem {
   id: string
@@ -43,38 +58,38 @@ interface Order {
 type DateFilter = "hoje" | "ontem" | "3dias" | "semana" | "todos"
 
 const statusConfig = {
-  "pedido recebido": { 
-    color: "bg-blue-500", 
-    icon: Clock, 
+  "pedido recebido": {
+    color: "bg-blue-500",
+    icon: Clock,
     text: "Recebido",
-    displayName: "Recebido"
+    displayName: "Recebido",
   },
-  "preparando": { 
-    color: "bg-yellow-500", 
-    icon: Clock, 
+  preparando: {
+    color: "bg-yellow-500",
+    icon: Clock,
     text: "Preparando",
-    displayName: "Preparando"
+    displayName: "Preparando",
   },
-  "pronto para entrega": { 
-    color: "bg-orange-500", 
-    icon: Truck, 
+  "pronto para entrega": {
+    color: "bg-orange-500",
+    icon: Truck,
     text: "Pronto",
-    displayName: "Pronto"
+    displayName: "Pronto",
   },
-  "entregue": { 
-    color: "bg-green-500", 
-    icon: CheckCircle, 
+  entregue: {
+    color: "bg-green-500",
+    icon: CheckCircle,
     text: "Entregue",
-    displayName: "Entregue"
+    displayName: "Entregue",
   },
 }
 
 const dateFilterConfig = {
-  "hoje": { label: "Hoje", value: "hoje" },
-  "ontem": { label: "Ontem", value: "ontem" },
+  hoje: { label: "Hoje", value: "hoje" },
+  ontem: { label: "Ontem", value: "ontem" },
   "3dias": { label: "Últimos 3 dias", value: "3dias" },
-  "semana": { label: "Última semana", value: "semana" },
-  "todos": { label: "Todos", value: "todos" },
+  semana: { label: "Última semana", value: "semana" },
+  todos: { label: "Todos", value: "todos" },
 }
 
 export default function AdminPage() {
@@ -89,22 +104,23 @@ export default function AdminPage() {
 
   // Função para transformar os dados da API para o formato esperado
   const transformOrderData = (apiData: any[]): Order[] => {
-    return apiData.map(order => ({
+    return apiData.map((order) => ({
       id: order._id,
       clienteId: order.clienteId,
       numeroMesa: order.numeroMesa,
-      items: order.itens?.map((item: any) => ({
-        id: item._id,
-        produtoId: item.produto && item.produto._id ? item.produto._id : null,
-        nome: item.produto && item.produto.nome ? item.produto.nome : "Produto removido",
-        preco: item.produto && typeof item.produto.preco === "number" ? item.produto.preco : 0,
-        quantidade: item.quantidade,
-        observacoes: item.observacao || undefined
-      })) || [],
+      items:
+        order.itens?.map((item: any) => ({
+          id: item._id,
+          produtoId: item.produto && item.produto._id ? item.produto._id : null,
+          nome: item.produto && item.produto.nome ? item.produto.nome : "Produto removido",
+          preco: item.produto && typeof item.produto.preco === "number" ? item.produto.preco : 0,
+          quantidade: item.quantidade,
+          observacoes: item.observacao || undefined,
+        })) || [],
       total: order.precoTotal,
       status: order.status,
       createdAt: order.data,
-      updatedAt: order.updatedAt || order.data
+      updatedAt: order.updatedAt || order.data,
     }))
   }
 
@@ -114,8 +130,8 @@ export default function AdminPage() {
 
     const now = new Date()
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
-    
-    return orders.filter(order => {
+
+    return orders.filter((order) => {
       const orderDate = new Date(order.createdAt)
       const orderDay = new Date(orderDate.getFullYear(), orderDate.getMonth(), orderDate.getDate())
       const diffTime = today.getTime() - orderDay.getTime()
@@ -141,41 +157,42 @@ export default function AdminPage() {
     try {
       setLoading(true)
       setError(null)
-      
-      const response = await fetch('/api/pedidos')
+
+      const response = await fetch("/api/pedidos")
       if (!response.ok) {
-        throw new Error('Erro ao buscar pedidos')
+        throw new Error("Erro ao buscar pedidos")
       }
-      
+
       const data = await response.json()
-      console.log('Raw API response:', data)
-      
+      console.log("Raw API response:", data)
+
       // Transformar os dados para o formato esperado
       const transformedOrders = transformOrderData(Array.isArray(data) ? data : [])
-      console.log('Transformed orders:', transformedOrders)
-      
+      console.log("Transformed orders:", transformedOrders)
+
       // Filtrar pedidos válidos (com dados obrigatórios)
       const validOrders = transformedOrders.filter((order: Order) => {
-        const isValid = order && 
-          order.id && 
-          order.clienteId && 
-          order.items && 
+        const isValid =
+          order &&
+          order.id &&
+          order.clienteId &&
+          order.items &&
           Array.isArray(order.items) &&
           order.total !== undefined &&
           order.status &&
           order.createdAt
-        
+
         if (!isValid) {
-          console.log('Invalid order:', order)
+          console.log("Invalid order:", order)
         }
         return isValid
       })
-      
-      console.log('Valid orders count:', validOrders.length)
+
+      console.log("Valid orders count:", validOrders.length)
       setOrders(validOrders)
     } catch (err) {
-      console.error('Error fetching orders:', err)
-      setError(err instanceof Error ? err.message : 'Erro desconhecido')
+      console.error("Error fetching orders:", err)
+      setError(err instanceof Error ? err.message : "Erro desconhecido")
     } finally {
       setLoading(false)
     }
@@ -184,13 +201,13 @@ export default function AdminPage() {
   // Fetch today's revenue
   const fetchReceitaHoje = async () => {
     try {
-      const response = await fetch('/api/pedidos/hoje/receita')
+      const response = await fetch("/api/pedidos/hoje/receita")
       if (response.ok) {
         const data = await response.json()
         setReceitaHoje(data.receita || 0)
       }
     } catch (err) {
-      console.error('Erro ao buscar receita:', err)
+      console.error("Erro ao buscar receita:", err)
     }
   }
 
@@ -198,76 +215,73 @@ export default function AdminPage() {
   const updateOrderStatus = async (orderId: string, newStatus: Order["status"]) => {
     try {
       setUpdating(orderId)
-      
+
       const response = await fetch(`/api/pedidos/${orderId}/status`, {
-        method: 'PATCH',
+        method: "PATCH",
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
         },
         body: JSON.stringify({ status: newStatus }),
       })
 
       if (!response.ok) {
-        throw new Error('Erro ao atualizar status')
+        throw new Error("Erro ao atualizar status")
       }
 
       // Update local state
-      setOrders(prev => 
-        prev.map(order => 
-          order.id === orderId 
-            ? { ...order, status: newStatus, updatedAt: new Date().toISOString() }
-            : order
-        )
+      setOrders((prev) =>
+        prev.map((order) =>
+          order.id === orderId ? { ...order, status: newStatus, updatedAt: new Date().toISOString() } : order,
+        ),
       )
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Erro ao atualizar status')
+      setError(err instanceof Error ? err.message : "Erro ao atualizar status")
     } finally {
       setUpdating(null)
     }
   }
 
   // Delete order
-const deleteOrder = async (orderId: string) => {
-  try {
-    setDeleting(orderId)
+  const deleteOrder = async (orderId: string) => {
+    try {
+      setDeleting(orderId)
 
-    const response = await fetch(`/api/pedidos/${orderId}`, {
-      method: 'DELETE',
-      headers: {
-        'Content-Type': 'application/json'
+      const response = await fetch(`/api/pedidos/${orderId}`, {
+        method: "DELETE",
+        headers: {
+          "Content-Type": "application/json",
+        },
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || "Erro ao eliminar pedido")
       }
-    })
 
-    if (!response.ok) {
-      const errorData = await response.json()
-      throw new Error(errorData.error || 'Erro ao eliminar pedido')
-    }
+      // Remove from local state
+      setOrders((prev) => prev.filter((order) => order.id !== orderId))
 
-    // Remove from local state
-    setOrders(prev => prev.filter(order => order.id !== orderId))
-
-    // Update revenue if it was today's order
-    const deletedOrder = orders.find(order => order.id === orderId)
-    if (deletedOrder) {
-      const today = new Date().toDateString()
-      const orderDate = new Date(deletedOrder.createdAt).toDateString()
-      if (today === orderDate) {
-        setReceitaHoje(prev => prev - deletedOrder.total)
+      // Update revenue if it was today's order
+      const deletedOrder = orders.find((order) => order.id === orderId)
+      if (deletedOrder) {
+        const today = new Date().toDateString()
+        const orderDate = new Date(deletedOrder.createdAt).toDateString()
+        if (today === orderDate) {
+          setReceitaHoje((prev) => prev - deletedOrder.total)
+        }
       }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Erro ao eliminar pedido")
+    } finally {
+      setDeleting(null)
     }
-  } catch (err) {
-    setError(err instanceof Error ? err.message : 'Erro ao eliminar pedido')
-  } finally {
-    setDeleting(null)
   }
-}
-
 
   // Initial load
   useEffect(() => {
     fetchOrders()
     fetchReceitaHoje()
-    
+
     // Auto-refresh every 30 seconds
     const interval = setInterval(() => {
       fetchOrders()
@@ -279,7 +293,7 @@ const deleteOrder = async (orderId: string) => {
 
   // Filter orders by date first, then by status
   const dateFilteredOrders = filterOrdersByDate(orders, selectedDateFilter)
-  
+
   // Sort orders by time (oldest first for pending orders)
   const sortedOrders = [...dateFilteredOrders].sort((a, b) => {
     if (a.status === "entregue" && b.status !== "entregue") return 1
@@ -287,21 +301,20 @@ const deleteOrder = async (orderId: string) => {
     return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
   })
 
-  const filteredOrders = selectedStatus === "Todos" 
-    ? sortedOrders 
-    : sortedOrders.filter(order => statusConfig[order.status].displayName === selectedStatus)
+  const filteredOrders =
+    selectedStatus === "Todos"
+      ? sortedOrders
+      : sortedOrders.filter((order) => statusConfig[order.status].displayName === selectedStatus)
 
   const getStats = () => {
     const today = new Date().toDateString()
-    const todayOrders = orders.filter(order => 
-      new Date(order.createdAt).toDateString() === today
-    )
-    
+    const todayOrders = orders.filter((order) => new Date(order.createdAt).toDateString() === today)
+
     return {
       totalOrders: todayOrders.length,
       totalRevenue: receitaHoje,
-      pendingOrders: orders.filter(order => order.status !== "entregue").length,
-      completedOrders: orders.filter(order => order.status === "entregue").length,
+      pendingOrders: orders.filter((order) => order.status !== "entregue").length,
+      completedOrders: orders.filter((order) => order.status === "entregue").length,
     }
   }
 
@@ -313,7 +326,7 @@ const deleteOrder = async (orderId: string) => {
     const diff = now.getTime() - orderTime.getTime()
     const minutes = Math.floor(diff / 60000)
     const hours = Math.floor(minutes / 60)
-    
+
     if (hours > 0) {
       return `${hours}h ${minutes % 60}m atrás`
     }
@@ -321,28 +334,28 @@ const deleteOrder = async (orderId: string) => {
   }
 
   const formatTime = (dateString: string) => {
-    return new Date(dateString).toLocaleTimeString('pt-BR', {
-      hour: '2-digit',
-      minute: '2-digit'
+    return new Date(dateString).toLocaleTimeString("pt-BR", {
+      hour: "2-digit",
+      minute: "2-digit",
     })
   }
 
   const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('pt-BR', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric'
+    return new Date(dateString).toLocaleDateString("pt-BR", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
     })
   }
 
   // Helper function to safely get order display ID
   const getOrderDisplayId = (order: Order) => {
-    return order.id ? order.id.slice(-8) : 'N/A'
+    return order.id ? order.id.slice(-8) : "N/A"
   }
 
   // Helper function to safely get client display ID
   const getClientDisplayId = (order: Order) => {
-    return order.clienteId ? order.clienteId.slice(-8) : 'N/A'
+    return order.clienteId ? order.clienteId.slice(-8) : "N/A"
   }
 
   if (loading) {
@@ -360,7 +373,7 @@ const deleteOrder = async (orderId: string) => {
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50">
       <header className="bg-white/80 backdrop-blur-lg shadow-lg border-b border-blue-100 sticky top-0 z-50">
         <div className="container mx-auto px-4 py-3 lg:py-4">
-          <div className="flex flex-col lg:flex-row lg:items-center justify-between space-y-2 lg:space-y-0">
+          <div className="flex items-center justify-between">
             <div className="flex items-center space-x-2 lg:space-x-4">
               <div className="p-1.5 lg:p-2 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-lg lg:rounded-xl">
                 <ChefHat className="h-6 lg:h-8 w-6 lg:w-8 text-white" />
@@ -372,42 +385,88 @@ const deleteOrder = async (orderId: string) => {
                 <p className="text-xs lg:text-sm text-gray-600">Painel de Controle Avançado</p>
               </div>
             </div>
-            <div className="flex items-center space-x-2 lg:space-x-4">
-              <Button
-                variant="outline"
-                onClick={fetchOrders}
-                disabled={loading}
-                className="border-blue-200 text-blue-600 hover:bg-blue-50 bg-transparent text-xs lg:text-sm"
-              >
-                <RefreshCw className={`h-3 lg:h-4 w-3 lg:w-4 mr-1 lg:mr-2 ${loading ? 'animate-spin' : ''}`} />
-                Atualizar
-              </Button>
-              <Link href="/admin/menu">
+            <div className="flex items-center space-x-2">
+              {/* Desktop Navigation */}
+              <div className="hidden lg:flex items-center space-x-4">
                 <Button
                   variant="outline"
-                  className="border-blue-200 text-blue-600 hover:bg-blue-50 bg-transparent text-xs lg:text-sm"
+                  onClick={fetchOrders}
+                  disabled={loading}
+                  className="border-blue-200 text-blue-600 hover:bg-blue-50 bg-transparent text-sm"
                 >
-                  <Menu className="h-3 lg:h-4 w-3 lg:w-4 mr-1 lg:mr-2" />
-                  Gerenciar Menu
+                  <RefreshCw className={`h-4 w-4 mr-2 ${loading ? "animate-spin" : ""}`} />
+                  Atualizar
                 </Button>
-              </Link>
-              <Link href="/admin/chamadas">
-                <Button
-                  variant="outline"
-                  className="border-blue-200 text-blue-600 hover:bg-blue-50 bg-transparent text-xs lg:text-sm"
-                >
-                  <Bell className="h-3 lg:h-4 w-3 lg:w-4 mr-1 lg:mr-2 text-blue-600" />
-                  Chamadas às Mesas
-                </Button>
-              </Link>
-              <Link href="/">
-                <Button
-                  variant="outline"
-                  className="border-gray-200 text-gray-600 hover:bg-gray-50 bg-transparent text-xs lg:text-sm"
-                >
-                  Voltar ao Site
-                </Button>
-              </Link>
+                <Link href="/admin/menu">
+                  <Button
+                    variant="outline"
+                    className="border-blue-200 text-blue-600 hover:bg-blue-50 bg-transparent text-sm"
+                  >
+                    <Menu className="h-4 w-4 mr-2" />
+                    Gerenciar Menu
+                  </Button>
+                </Link>
+                <Link href="/admin/chamadas">
+                  <Button
+                    variant="outline"
+                    className="border-blue-200 text-blue-600 hover:bg-blue-50 bg-transparent text-sm"
+                  >
+                    <Bell className="h-4 w-4 mr-2 text-blue-600" />
+                    Chamadas às Mesas
+                  </Button>
+                </Link>
+                <Link href="/">
+                  <Button
+                    variant="outline"
+                    className="border-gray-200 text-gray-600 hover:bg-gray-50 bg-transparent text-sm"
+                  >
+                    Voltar ao Site
+                  </Button>
+                </Link>
+              </div>
+
+              {/* Mobile Navigation */}
+              <Sheet>
+                <SheetTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    className="lg:hidden border-blue-200 text-blue-600 bg-transparent"
+                  >
+                    <MenuIcon className="h-5 w-5" />
+                  </Button>
+                </SheetTrigger>
+                <SheetContent side="right" className="w-[250px] sm:w-[300px]">
+                  <div className="flex flex-col items-start space-y-4 pt-8">
+                    <Button
+                      variant="ghost"
+                      onClick={fetchOrders}
+                      disabled={loading}
+                      className="w-full justify-start text-blue-600 hover:bg-blue-50"
+                    >
+                      <RefreshCw className={`h-4 w-4 mr-2 ${loading ? "animate-spin" : ""}`} />
+                      Atualizar
+                    </Button>
+                    <Link href="/admin/menu" className="w-full">
+                      <Button variant="ghost" className="w-full justify-start text-blue-600 hover:bg-blue-50">
+                        <Menu className="h-4 w-4 mr-2" />
+                        Gerenciar Menu
+                      </Button>
+                    </Link>
+                    <Link href="/admin/chamadas" className="w-full">
+                      <Button variant="ghost" className="w-full justify-start text-blue-600 hover:bg-blue-50">
+                        <Bell className="h-4 w-4 mr-2 text-blue-600" />
+                        Chamadas às Mesas
+                      </Button>
+                    </Link>
+                    <Link href="/" className="w-full">
+                      <Button variant="ghost" className="w-full justify-start text-gray-600 hover:bg-gray-50">
+                        Voltar ao Site
+                      </Button>
+                    </Link>
+                  </div>
+                </SheetContent>
+              </Sheet>
             </div>
           </div>
         </div>
@@ -417,9 +476,7 @@ const deleteOrder = async (orderId: string) => {
         {error && (
           <Alert className="mb-6 border-red-200 bg-red-50">
             <AlertCircle className="h-4 w-4" />
-            <AlertDescription className="text-red-800">
-              {error}
-            </AlertDescription>
+            <AlertDescription className="text-red-800">{error}</AlertDescription>
           </Alert>
         )}
 
@@ -536,7 +593,8 @@ const deleteOrder = async (orderId: string) => {
                           </div>
                         </CardTitle>
                         <CardDescription className="text-sm lg:text-base mt-2">
-                          Cliente: {getClientDisplayId(order)} • {formatDate(order.createdAt)} às {formatTime(order.createdAt)}
+                          Cliente: {getClientDisplayId(order)} • {formatDate(order.createdAt)} às{" "}
+                          {formatTime(order.createdAt)}
                           {order.numeroMesa && ` • Mesa ${order.numeroMesa}`}
                         </CardDescription>
                       </div>
@@ -551,7 +609,7 @@ const deleteOrder = async (orderId: string) => {
                             <Button
                               variant="outline"
                               size="sm"
-                              className="border-red-200 text-red-600 hover:bg-red-50"
+                              className="border-red-200 text-red-600 hover:bg-red-50 bg-transparent"
                               disabled={deleting === order.id}
                             >
                               {deleting === order.id ? (
@@ -566,8 +624,8 @@ const deleteOrder = async (orderId: string) => {
                             <AlertDialogHeader>
                               <AlertDialogTitle>Confirmar Eliminação</AlertDialogTitle>
                               <AlertDialogDescription>
-                                Tem certeza que deseja eliminar o pedido #{getOrderDisplayId(order)}? 
-                                Esta ação não pode ser desfeita.
+                                Tem certeza que deseja eliminar o pedido #{getOrderDisplayId(order)}? Esta ação não pode
+                                ser desfeita.
                               </AlertDialogDescription>
                             </AlertDialogHeader>
                             <AlertDialogFooter>
@@ -594,7 +652,9 @@ const deleteOrder = async (orderId: string) => {
                               <li key={item.id || index} className="text-gray-700 flex items-center justify-between">
                                 <div className="flex items-center">
                                   <div className="w-2 h-2 bg-blue-500 rounded-full mr-3"></div>
-                                  <span>{item.quantidade}x {item.nome}</span>
+                                  <span>
+                                    {item.quantidade}x {item.nome}
+                                  </span>
                                 </div>
                                 <span className="text-sm text-gray-500">
                                   € {(item.preco * item.quantidade).toFixed(2)}
@@ -605,15 +665,17 @@ const deleteOrder = async (orderId: string) => {
                         </div>
                       </div>
 
-                      {order.items?.some(item => item.observacoes) && (
+                      {order.items?.some((item) => item.observacoes) && (
                         <div>
                           <h4 className="font-semibold mb-2 text-gray-800">Observações:</h4>
                           <div className="bg-yellow-50 border-l-4 border-yellow-400 p-3 rounded space-y-1">
-                            {order.items.filter(item => item.observacoes).map((item, index) => (
-                              <p key={index} className="text-gray-700 text-sm">
-                                <strong>{item.nome}:</strong> {item.observacoes}
-                              </p>
-                            ))}
+                            {order.items
+                              .filter((item) => item.observacoes)
+                              .map((item, index) => (
+                                <p key={index} className="text-gray-700 text-sm">
+                                  <strong>{item.nome}:</strong> {item.observacoes}
+                                </p>
+                              ))}
                           </div>
                         </div>
                       )}
@@ -627,7 +689,7 @@ const deleteOrder = async (orderId: string) => {
                             const Icon = config.icon
                             const isCurrentStatus = order.status === status
                             const isUpdating = updating === order.id
-                            
+
                             return (
                               <Button
                                 key={status}

@@ -83,7 +83,7 @@ export default function MenuPage() {
   const [cartLoading, setCartLoading] = useState(false)
   const [cartItemIds, setCartItemIds] = useState<{ [productId: string]: string }>({})
   const [callingWaiter, setCallingWaiter] = useState(false)
-  
+
   // Estados para anti-spam
   const [updatingItems, setUpdatingItems] = useState<Set<string>>(new Set())
   const [pendingUpdates, setPendingUpdates] = useState<{ [key: string]: number }>({})
@@ -114,7 +114,7 @@ export default function MenuPage() {
   // Cleanup dos timeouts ao desmontar o componente
   useEffect(() => {
     return () => {
-      Object.values(updateTimeouts.current).forEach(timeout => clearTimeout(timeout))
+      Object.values(updateTimeouts.current).forEach((timeout) => clearTimeout(timeout))
     }
   }, [])
 
@@ -363,31 +363,32 @@ export default function MenuPage() {
     const now = Date.now()
     const lastUpdate = lastUpdateTime.current[productId] || 0
     const timeSinceLastUpdate = now - lastUpdate
-    
-    if (timeSinceLastUpdate < 200) { // 200ms throttle
+
+    if (timeSinceLastUpdate < 200) {
+      // 200ms throttle
       return
     }
-    
+
     lastUpdateTime.current[productId] = now
-    
+
     // Marca o item como sendo atualizado
-    setUpdatingItems(prev => new Set(prev).add(productId))
-    
+    setUpdatingItems((prev) => new Set(prev).add(productId))
+
     // Limpa timeout anterior se existir
     clearUpdateTimeout(productId)
-    
+
     // Atualiza estado pendente
-    setPendingUpdates(prev => ({
+    setPendingUpdates((prev) => ({
       ...prev,
-      [productId]: newQuantity
+      [productId]: newQuantity,
     }))
-    
+
     // Cria novo timeout
     updateTimeouts.current[productId] = setTimeout(async () => {
       try {
         if (clienteId && isClient) {
           const currentQuantity = cart[productId] || 0
-          
+
           if (newQuantity === 0) {
             await removeItemFromCart(productId)
           } else if (currentQuantity === 0) {
@@ -399,25 +400,25 @@ export default function MenuPage() {
       } catch (error) {
         console.error("Erro ao atualizar quantidade:", error)
         // Reverte para quantidade anterior em caso de erro
-        setCart(prev => ({
+        setCart((prev) => ({
           ...prev,
           [productId]: cart[productId] || 0,
         }))
       } finally {
         // Remove o item da lista de atualizações
-        setUpdatingItems(prev => {
+        setUpdatingItems((prev) => {
           const newSet = new Set(prev)
           newSet.delete(productId)
           return newSet
         })
-        
+
         // Remove do estado pendente
-        setPendingUpdates(prev => {
+        setPendingUpdates((prev) => {
           const newPending = { ...prev }
           delete newPending[productId]
           return newPending
         })
-        
+
         // Limpa o timeout
         clearUpdateTimeout(productId)
       }
@@ -563,7 +564,7 @@ export default function MenuPage() {
                 </span>
               </Link>
             </div>
-            <div className="flex items-center space-x-2 lg:space-x-4">
+            <div className="flex items-center gap-x-1 sm:gap-x-2 lg:gap-x-4">
               <LanguageSelector />
               <Link href="/client/orders" className="hidden sm:block">
                 <Button
@@ -582,12 +583,12 @@ export default function MenuPage() {
                 disabled={callingWaiter}
                 className="border-blue-200 text-blue-600 hover:bg-blue-50 bg-transparent text-xs lg:text-sm"
               >
-                {callingWaiter ? (
-                  <Loader2 className="h-3 lg:h-4 w-3 lg:w-4 mr-1 lg:mr-2 animate-spin" />
+                {callingWaiter ? ( // Adjust icon margin for responsiveness
+                  <Loader2 className="h-3 lg:h-4 w-3 lg:w-4 mr-0 sm:mr-1 lg:mr-2 animate-spin" /> // Adjust icon margin for responsiveness
                 ) : (
-                  <Bell className="h-3 lg:h-4 w-3 lg:w-4 mr-1 lg:mr-2" />
+                  <Bell className="h-3 lg:h-4 w-3 lg:w-4 mr-0 sm:mr-1 lg:mr-2" />
                 )}
-                {t.callWaiter}
+                <span className="hidden sm:inline">{t.callWaiter}</span> {/* Hide text on xs screens */}
               </Button>
               <Link href="/client/cart">
                 <Button className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 relative text-xs lg:text-sm">
@@ -681,7 +682,7 @@ export default function MenuPage() {
                   <div className="h-32 lg:h-48 bg-gradient-to-br from-blue-100 to-indigo-100 flex items-center justify-center">
                     {product.foto ? (
                       <Image
-                        src={product.foto}
+                        src={product.foto || "/placeholder.svg"}
                         alt={product.nome}
                         width={200}
                         height={200}
@@ -736,54 +737,54 @@ export default function MenuPage() {
                 </CardHeader>
 
                 <CardContent className="pt-0 p-3 lg:p-6">
-  <div className="flex items-center justify-between">
-    <div className="flex items-center space-x-2 lg:space-x-3">
-      <Button
-        variant="outline"
-        size="sm"
-        onClick={() => removeFromCart(product._id)}
-        disabled={!getCurrentQuantity(product._id) || isItemUpdating(product._id)}
-        className="border-blue-200 text-blue-600 hover:bg-blue-50 h-8 w-8 lg:h-10 lg:w-10 p-0 transition-all duration-150"
-      >
-        {isItemUpdating(product._id) ? (
-          <Loader2 className="h-3 lg:h-4 w-3 lg:w-4 animate-spin" />
-        ) : (
-          <Minus className="h-3 lg:h-4 w-3 lg:w-4" />
-        )}
-      </Button>
-      
-      <span className="w-6 lg:w-8 text-center font-semibold text-sm lg:text-lg transition-all duration-150">
-        {getCurrentQuantity(product._id)}
-      </span>
-      
-      <Button
-        variant="outline"
-        size="sm"
-        onClick={() => addToCart(product._id)}
-        disabled={isItemUpdating(product._id)}
-        className="border-blue-200 text-blue-600 hover:bg-blue-50 h-8 w-8 lg:h-10 lg:w-10 p-0 transition-all duration-150"
-      >
-        {isItemUpdating(product._id) ? (
-          <Loader2 className="h-3 lg:h-4 w-3 lg:w-4 animate-spin" />
-        ) : (
-          <Plus className="h-3 lg:h-4 w-3 lg:w-4" />
-        )}
-      </Button>
-    </div>
-    
-    {product.customizavel && (
-      <Link href={`/client/customize/${product._id}`}>
-        <Button
-          variant="outline"
-          size="sm"
-          className="border-indigo-200 text-indigo-600 hover:bg-indigo-50 bg-transparent text-xs lg:text-sm px-2 lg:px-3 transition-all duration-150"
-        >
-          {t.customize}
-        </Button>
-      </Link>
-    )}
-  </div>
-</CardContent>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-2 lg:space-x-3">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => removeFromCart(product._id)}
+                        disabled={!getCurrentQuantity(product._id) || isItemUpdating(product._id)}
+                        className="border-blue-200 text-blue-600 hover:bg-blue-50 h-8 w-8 lg:h-10 lg:w-10 p-0 transition-all duration-150"
+                      >
+                        {isItemUpdating(product._id) ? (
+                          <Loader2 className="h-3 lg:h-4 w-3 lg:w-4 animate-spin" />
+                        ) : (
+                          <Minus className="h-3 lg:h-4 w-3 lg:w-4" />
+                        )}
+                      </Button>
+
+                      <span className="w-6 lg:w-8 text-center font-semibold text-sm lg:text-lg transition-all duration-150">
+                        {getCurrentQuantity(product._id)}
+                      </span>
+
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => addToCart(product._id)}
+                        disabled={isItemUpdating(product._id)}
+                        className="border-blue-200 text-blue-600 hover:bg-blue-50 h-8 w-8 lg:h-10 lg:w-10 p-0 transition-all duration-150"
+                      >
+                        {isItemUpdating(product._id) ? (
+                          <Loader2 className="h-3 lg:h-4 w-3 lg:w-4 animate-spin" />
+                        ) : (
+                          <Plus className="h-3 lg:h-4 w-3 lg:w-4" />
+                        )}
+                      </Button>
+                    </div>
+
+                    {product.customizavel && (
+                      <Link href={`/client/customize/${product._id}`}>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="border-indigo-200 text-indigo-600 hover:bg-indigo-50 bg-transparent text-xs lg:text-sm px-2 lg:px-3 transition-all duration-150"
+                        >
+                          {t.customize}
+                        </Button>
+                      </Link>
+                    )}
+                  </div>
+                </CardContent>
               </Card>
             ))}
           </div>

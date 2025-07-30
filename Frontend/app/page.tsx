@@ -21,7 +21,9 @@ import {
   PlayCircle,
   BarChart3,
   Wifi,
+  Menu,
 } from "lucide-react"
+import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet" // Import Sheet components
 
 export default function LandingPage() {
   const { t, formatPrice } = useLanguage()
@@ -47,17 +49,47 @@ export default function LandingPage() {
               </div>
             </div>
             <div className="flex items-center space-x-4">
-              <LanguageSelector />
-              <Link href="/client/menu">
-                <Button variant="ghost" className="text-blue-600 hover:bg-blue-50">
-                  {t.demoClient}
-                </Button>
-              </Link>
-              <Link href="/admin">
-                <Button className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 shadow-lg">
-                  {t.adminArea}
-                </Button>
-              </Link>
+              {/* Desktop Navigation */}
+              <div className="hidden md:flex items-center space-x-4">
+                <LanguageSelector />
+                <Link href="/client/menu">
+                  <Button variant="ghost" className="text-blue-600 hover:bg-blue-50">
+                    {t.demoClient}
+                  </Button>
+                </Link>
+                <Link href="/admin">
+                  <Button className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 shadow-lg">
+                    {t.adminArea}
+                  </Button>
+                </Link>
+              </div>
+
+              {/* Mobile Navigation */}
+              <div className="md:hidden">
+                <Sheet>
+                  <SheetTrigger asChild>
+                    <Button variant="ghost" size="icon">
+                      <Menu className="h-6 w-6" />
+                      <span className="sr-only">Open menu</span>
+                    </Button>
+                  </SheetTrigger>
+                  <SheetContent side="right" className="w-[250px] sm:w-[300px] p-6">
+                    <nav className="flex flex-col gap-6 pt-8">
+                      <LanguageSelector />
+                      <Link href="/client/menu">
+                        <Button variant="ghost" className="w-full justify-start text-blue-600 hover:bg-blue-50">
+                          {t.demoClient}
+                        </Button>
+                      </Link>
+                      <Link href="/admin">
+                        <Button className="w-full justify-start bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 shadow-lg">
+                          {t.adminArea}
+                        </Button>
+                      </Link>
+                    </nav>
+                  </SheetContent>
+                </Sheet>
+              </div>
             </div>
           </nav>
         </div>

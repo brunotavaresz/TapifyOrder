@@ -187,9 +187,9 @@ export default function OrdersPage() {
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-2 lg:space-x-4">
               <Link href="/client/menu">
-                <Button variant="ghost" size="sm" className="text-blue-600 hover:bg-blue-50 text-xs lg:text-sm">
-                  <ArrowLeft className="h-3 lg:h-4 w-3 lg:w-4 mr-1 lg:mr-2" />
-                  Voltar ao Menu
+                <Button variant="ghost" size="icon" className="text-blue-600 hover:bg-blue-50 sm:size-sm">
+                  <ArrowLeft className="h-3 lg:h-4 w-3 lg:w-4 sm:mr-2" />
+                  <span className="hidden sm:inline text-xs lg:text-sm">Voltar ao Menu</span>
                 </Button>
               </Link>
               <div className="flex items-center space-x-2">
@@ -208,14 +208,15 @@ export default function OrdersPage() {
               <Button
                 onClick={callWaiter}
                 disabled={callingWaiter}
-                className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white text-xs lg:text-sm px-3 py-1.5 lg:px-4 lg:py-2" // Estilo do botão alterado
+                size="icon" // Default to icon size on extra small screens
+                className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white sm:size-sm" // On small screens and up, use sm size
               >
                 {callingWaiter ? (
-                  <Loader2 className="h-3 lg:h-4 w-3 lg:w-4 mr-1 lg:mr-2 animate-spin" />
+                  <Loader2 className="h-3 lg:h-4 w-3 lg:w-4 sm:mr-2 animate-spin" />
                 ) : (
-                  <Bell className="h-3 lg:h-4 w-3 lg:w-4 mr-1 lg:mr-2" />
+                  <Bell className="h-3 lg:h-4 w-3 lg:w-4 sm:mr-2" />
                 )}
-                <span className="hidden sm:inline">Chamar </span>Empregado {/* Texto alterado */}
+                <span className="hidden sm:inline text-xs lg:text-sm">Chamar Empregado</span>
               </Button>
             </div>
           </div>
